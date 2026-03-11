@@ -36,7 +36,7 @@ Successfully finds alternative paths (e.g., clicking the 'Active' filter) when t
 
 ### 2. Human-in-the-Loop Verification
 The agent proposes a fix and waits for engineer approval, ensuring complete control over the codebase.
-![Verification Repair Flow](images/agent_human_verification.png)
+![Verification Repair Flow](images/agent_human_verification_repair.png)
 
 ### 3. Ethical Failure & Boundary Recognition
 If the task is technically impossible (e.g., element missing from DOM), the agent provides a clear diagnostic error instead of hallucinating.
