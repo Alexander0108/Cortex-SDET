@@ -30,20 +30,21 @@ Professional-grade QA Automation tool that uses Local LLMs to generate, execute,
 4. **Healing**: If execution fails, the agent initiates a repair cycle based on the error log.
 
 ## 🖼 Demonstration
-### 1. Dynamic Self-Healing
-Successfully finds alternative paths (e.g., clicking the 'Active' filter) when the primary selector is missing.
-![Success Flow](images/terminal_success.png)
 
-### 2. Human-in-the-Loop Verification
-The agent proposes a fix and waits for engineer approval, ensuring complete control over the codebase.
-![Verification Repair Flow](images/agent_human_verification_repair.png)
+### 1. Happy Path: Precision Execution
+The agent identifies the best selectors (using `data-testid`) and executes the task flawlessly on the first attempt.
+![Success Flow](images/scenario1_success.png)
 
-### 3. Ethical Failure & Boundary Recognition
-If the task is technically impossible (e.g., element missing from DOM), the agent provides a clear diagnostic error instead of hallucinating.
-![Boundary Diagnostic](images/ai_boundary_diagnostic.png)
+### 2. Dynamic Self-Healing & Human-in-the-Loop
+When a direct instruction (like "Click the ADD button") is impossible, the agent analyzes the DOM, finds an alternative (like `press('Enter')`), and waits for engineer approval.
+![Self-Healing Flow](images/scenario2_repair.png)
 
-### 4. Failure Evidence (Visual Artifact)
-When a test fails, the framework captures a high-resolution screenshot. This allows engineers to see exactly what the AI saw, facilitating 10x faster debugging.
+### 3. Anti-Hallucination & Boundary Recognition
+If an element is truly missing from the DOM, the agent triggers the `DIAGNOSTIC_FAIL` guardrail instead of generating fake code.
+![Boundary Diagnostic](images/scenario3_diagnostic.png)
+
+### 4. Visual Evidence (Failure Artifacts)
+Every failure generates a `failure_screenshot.png`, allowing for instant visual debugging of the AI's environment.
 ![UI Error State](images/ui_error_state.png)
 
 ## 📊 Future Roadmap
