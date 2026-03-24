@@ -2,25 +2,31 @@ import asyncio
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
-class SlotScraper:
+class CortexScraper:
     def __init__(self):
-        # Залишаємо тільки те, що допоможе ШІ написати стабільний селектор
-        self.qa_attrs = ["id", "class", "data-qa", "data-testid", "name", "role", "type"]
+        # placeholder додано - це супер для TodoMVC!
+        self.qa_attrs = ["id", "class", "data-qa", "data-testid", "name", "role", "type", "placeholder"]
 
     async def get_cleaned_html(self, url):
         async with async_playwright() as p:
             print(f"[*] Запуск браузера для: {url}")
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=False)
             page = await browser.new_page()
-            await page.goto(url, wait_until="networkidle")
             
-            # --- НОВИЙ БЛОК: Створюємо видимість елементів ---
-            if "todomvc" in url:
-                await page.fill('input.new-todo', 'Init Task')
-                await page.press('input.new-todo', 'Enter')
-                await asyncio.sleep(1) # Чекаємо появи фільтрів
-            # -----------------------------------------------
-
+            # 1. Заходимо на сторінку
+            await page.goto(url, wait_until="commit") 
+            
+            # 2. Розумне очікування (Smart Wait)
+            try:
+                # Чекаємо появи хоча б body, щоб гарантувати, що DOM почав будуватися
+                await page.wait_for_selector("body", timeout=5000)
+                # Чекаємо мережевого спокою (Network Idle) як додаткову страховку
+                await page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception as e:
+                print(f"[*] Попередження під час очікування сторінки: {e}")
+                
+            await asyncio.sleep(2) # Захисний інтервал для важких JS-анімацій
+            
             raw_html = await page.content()
             await browser.close()
             return self.clean_dom(raw_html)
@@ -28,13 +34,12 @@ class SlotScraper:
     def clean_dom(self, html):
         soup = BeautifulSoup(html, "html.parser")
         
-        # Видаляємо теги-сміття, які забивають пам'ять LLM
-        for tag in soup(["script", "style", "svg", "path", "noscript", "link", "header", "footer"]):
+        # ВИДАЛЕНО "header" та "footer" з чорного списку
+        for tag in soup(["script", "style", "svg", "path", "noscript", "link"]):
             tag.decompose()
 
         # Очищаємо атрибути кожного тегу
         for tag in soup.find_all(True):
-            # Залишаємо тільки ті атрибути, що в нашому списку qa_attrs
             tag.attrs = {k: v for k, v in tag.attrs.items() if k in self.qa_attrs}
             
             # Якщо тег порожній і без атрибутів - він нам не треба
@@ -44,13 +49,9 @@ class SlotScraper:
         return str(soup.prettify())
 
 if __name__ == "__main__":
-    # Тест скрейпера на реальному (публічному) ресурсі
-    scraper = SlotScraper()
-    url = "https://demo.playwright.dev/todomvc/"
+    scraper = CortexScraper()
+    url = "https://demo.playwright.dev/todomvc/#/"
     
     cleaned = asyncio.run(scraper.get_cleaned_html(url))
     print("--- Очищений HTML (перші 500 символів) ---")
     print(cleaned[:500])
-    
-    with open("cleaned_context.txt", "w", encoding="utf-8") as f:
-        f.write(cleaned)

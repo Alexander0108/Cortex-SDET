@@ -1,57 +1,67 @@
-# Agentic-Slot: Autonomous AI Testing Framework 🚀
+# 🧠 Cortex-SDET: Autonomous AI-Powered Testing Framework
+Cortex-SDET is a professional-grade QA Automation orchestrator that leverages Large Language Models (LLMs) to generate, execute, and self-heal E2E tests in real-time.
 
-Professional-grade QA Automation tool that uses Local LLMs to generate, execute, and repair E2E tests.
-
-## 🌟 Key Features
-- **Reliable Execution**: High success rate on standard E2E scenarios. If the UI is stable, the agent executes tasks flawlessly without any human intervention.
-- **Human-in-the-Loop Control**: Strategic verification step that allows engineers to approve or reject AI-proposed fixes before execution, ensuring 100% predictability.
-- **Zero-Code Testing**: Describe your task in English (e.g., "Add task 'Buy Bitcoin'"), and the agent does the rest.
-- **Self-Healing Logic**: If a test fails due to UI changes, the agent analyzes the Error Traceback + DOM and repairs the code automatically.
-- **Enterprise Guardrails**: Strictly enforced Playwright best practices, preventing "False Positive" results.
-- **Local & Private**: Powered by Ollama (Qwen2.5-Coder), ensuring no data leaves your machine.
-- **Automated Artifacts**: Generates full-page screenshots on failure for rapid debugging.
+## 🌟 Strategic Advantages
+- **Intent-Based Testing**: Describe business logic in plain English; the AI handles complex Playwright selectors.
+- **Hybrid Brain**: Seamlessly switch between OpenAI (GPT-4o) for high-speed cloud execution and Ollama (DeepSeek-R1) for local data privacy.
+- **Self-Healing Engine**: Automatically diagnoses failures and proposes code fixes based on real-time DOM analysis and stack traces.
+- **Rich Visual Reporting**: Generates comprehensive HTML reports with timestamps, error logs, and failure screenshots.
+- **Human-in-the-Loop (HITL)**: Prevents AI hallucinations by requiring engineer approval before applying self-healing code fixes.
 
 ## 🛠 Tech Stack
-- **Language**: Python 3.9+
-- **Automation**: Playwright (Async)
-- **AI Brain**: Ollama (Qwen2.5-Coder:7b)
-- **Parsing**: BeautifulSoup4 & Regex Sanitization
+- **Core**: Python 3.9+
+- **Driver**: Playwright (Async API)
+- **Scraper**: Custom BeautifulSoup4 DOM Sanitizer
+- **Intelligence**: OpenAI API & Local LLMs (Ollama)
 
 ## 🚀 Quick Start
-0. Install [Ollama](https://ollama.ai/) and pull the model: ollama pull qwen2.5-coder:7b
-1. Install requirements: `pip install -r requirements.txt`
-2. Install Playwright browsers: `playwright install`
-3. Run the orchestrator: `python3 main.py`
+Clone the repo:
+```bash
+git clone https://github.com/your-username/Cortex-SDET.git
+cd Cortex-SDET
+```
 
-## 📊 How it Works
-1. **Scraper**: Extracts and cleans the target website's HTML.
-2. **Bridge**: Sends HTML + User Task to the LLM.
-3. **Execution**: Runs the generated script in an isolated subprocess.
-4. **Healing**: If execution fails, the agent initiates a repair cycle based on the error log.
+Local AI Setup (Optional but recommended):
+Install Ollama and pull the required local model:
+```bash
+ollama pull deepseek-r1:8b
+```
+
+Environment Setup:
+Install dependencies and Playwright browsers:
+```bash
+pip install -r requirements.txt
+playwright install
+```
+
+Configure .env:
+Create a .env file in the root directory and add your OpenAI key if using Cloud mode:
+```env
+OPENAI_API_KEY=your_actual_key_here
+```
+
+Run Orchestrator:
+```bash
+python3 main.py
+```
 
 ## 🖼 Demonstration
-
 ### 1. Happy Path: Precision Execution
-The agent identifies the best selectors (using `data-testid`) and executes the task flawlessly on the first attempt.
-![Success Flow](images/scenario1_success.png)
+The agent successfully identifies stable selectors using custom DOM cleaning logic and executes the task flawlessly on the first attempt.
+![Success Flow](images/success_flow.png)
 
-### 2. Dynamic Self-Healing & Human-in-the-Loop
-When a direct instruction (like "Click the ADD button") is impossible, the agent analyzes the DOM, finds an alternative (like `press('Enter')`), and waits for engineer approval.
-![Self-Healing Flow](images/scenario2_repair.png)
+### 2. Self-Healing: Automatic Recovery
+When a test fails (e.g., due to a missing element or UI change), the system captures a failure screenshot, analyzes the error, and proposes a repaired script for engineer approval.
+![Self-Healing Flow](images/healing_flow.png)
 
-### 3. Anti-Hallucination & Boundary Recognition
-If an element is truly missing from the DOM, the agent triggers the `DIAGNOSTIC_FAIL` guardrail instead of generating fake code.
-![Boundary Diagnostic](images/scenario3_diagnostic.png)
+## 📊 How it Works
+- **CortexScraper**: Captures and cleans the target website's HTML, removing "noise" to optimize LLM token usage.
+- **CortexBridge**: Translates user tasks into executable Python code following strict SDET best practices.
+- **CortexReporter**: Compiles execution data into professional HTML artifacts for stakeholders.
 
-### 4. Visual Evidence (Failure Artifacts)
-Every failure generates a `failure_screenshot.png`, allowing for instant visual debugging of the AI's environment.
-![UI Error State](images/ui_error_state.png)
+## 🛣 Future Roadmap
+1. Integration with CI/CD pipelines (GitHub Actions).
+2. Multi-page session persistence.
+3. Visual Regression testing module.
 
-## 📊 Future Roadmap
-1. **Integration** with Jenkins/GitHub Actions.
-2. **Support** for multi-modal models (Vision) for UI comparison.
-3. **Compliance Testing**: Automated verification of regulatory requirements for iGaming transactions.
-4. **Database validation** for iGaming transaction testing.
-
----
 *Developed by Oleksandr Dermanskij - Junior QA Automation Engineer*

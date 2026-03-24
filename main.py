@@ -1,6 +1,10 @@
 import asyncio, re, os, subprocess
-from scraper import SlotScraper
-from bridge import AgenticBridge
+from dotenv import load_dotenv
+from scraper import CortexScraper
+from bridge import CortexBridge
+from reporter import CortexReporter
+
+load_dotenv() # Завантажуємо змінні з .env
 
 def clean_artifacts():
     files_to_delete = ["generated_test_result.py", "failure_screenshot.png"]
@@ -50,21 +54,27 @@ async def execute_test(filepath):
         print(f"[!] Критична помилка при запуску: {e}")
         return False, str(e)
 
-async def run_agentic_qa(url, task):
+async def run_agentic_qa(url, task, bridge):
     clean_artifacts()
-    scraper = SlotScraper()
-    bridge = AgenticBridge()
+    scraper = CortexScraper()
+    reporter = CortexReporter()
     
-    # Спроба №1
     cleaned_html = await scraper.get_cleaned_html(url)
     raw_code = bridge.generate_test(f"URL: {url}\nHTML: {cleaned_html}", task)
-    generated_code = extract_code(raw_code) # ОЧИЩЕННЯ
+    generated_code = extract_code(raw_code)
     
     test_file = os.path.join(os.path.dirname(__file__), "generated_test_result.py")
     with open(test_file, "w", encoding="utf-8") as f:
         f.write(generated_code)
     
     success, error_msg = await execute_test(test_file)
+    
+    # Визначаємо статус та скриншот
+    screenshot_path = "failure_screenshot.png"
+    status = "PASSED" if success else "FAILED"
+    
+    # Створюємо звіт
+    reporter.generate_report(url, task, status, error_msg, screenshot_path)
     
     if not success:        
         # Перевіряємо скриншот перед ремонтом
@@ -78,9 +88,14 @@ async def run_agentic_qa(url, task):
 
         print("\n" + "~"*50)
         print("🤔 ПОЯСНЕННЯ ВІД ШІ (DIAGNOSIS):")
-        # Відрізаємо все, що йде до блоку з кодом
-        diagnosis = raw_repaired.split("```python")[0].strip()
-        print(diagnosis if diagnosis else "Діагноз відсутній у відповіді")
+        # Витягуємо думки з тегів <think>, які генерує DeepSeek
+        think_match = re.search(r'<think>(.*?)</think>', raw_repaired, re.DOTALL)
+        if think_match:
+            print(think_match.group(1).strip())
+        else:
+            # Фолбек, якщо тегів <think> немає
+            diagnosis = raw_repaired.split("```python")[0].strip()
+            print(diagnosis if diagnosis else "Діагноз відсутній у відповіді")
         print("~"*50)
 
         if "DIAGNOSTIC_FAIL" in raw_repaired:
@@ -119,6 +134,26 @@ async def run_agentic_qa(url, task):
             print("[⚠️] Ремонт скасовано користувачем. Вихід.")
 
 if __name__ == "__main__":
-    target_url = "https://demo.playwright.dev/todomvc/"
-    user_task = "1. Додай нову задачу під назвою 'Test-task'. 2. Натисни 'Enter' для підтвердження додавання задачі у список. 3. Перевір чи створена у першому пункті задача зʼявилась у списку."
-    asyncio.run(run_agentic_qa(target_url, user_task))
+    print("\n" + "="*50)
+    print("🧠 ВІТАЄМО У CORTEX-SDET ORCHESTRATOR")
+    print("="*50)
+    print("Оберіть режим роботи ШІ:")
+    print("1. 💻 Локальний (Ollama - deepseek-r1:8b) - Безкоштовно, навантажує ПК")
+    print("2. ☁️ Хмарний (OpenAI - gpt-4o-mini) - Швидко, точно, потрібен API ключ")
+    
+    choice = input("Ваш вибір (1 або 2): ").strip()
+    
+    if choice == "2":
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            print("❌ ПОМИЛКА: Не знайдено OPENAI_API_KEY у файлі .env")
+            exit(1)
+        bridge = CortexBridge(model_name="gpt-4o-mini", use_cloud=True, api_key=api_key)
+    else:
+        bridge = CortexBridge(model_name="deepseek-r1:8b", use_cloud=False)
+
+    target_url = input("\n🌐 Введіть URL сайту (напр. https://the-internet.herokuapp.com/login): ").strip()
+    user_task = input("📝 Введіть завдання для тесту: ").strip()
+    
+    # Викликаємо нашу головну функцію
+    asyncio.run(run_agentic_qa(target_url, user_task, bridge))
