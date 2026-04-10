@@ -1,6 +1,3 @@
-import ollama
-from openai import OpenAI
-from google import genai  # Нова бібліотека для Gemini 2.0
 import time
 
 class CortexBridge:
@@ -8,13 +5,27 @@ class CortexBridge:
         self.model_name = model_name
         self.use_cloud = use_cloud
         
-        # Ініціалізація клієнтів залежно від обраного провайдера
+        # Initialize clients depending on the selected provider
         if self.use_cloud and api_key:
             if "gemini" in self.model_name.lower():
-                # Ініціалізуємо специфічний клієнт Google Gemini
+                # Initialize the Google Gemini-specific client
+                try:
+                    from google import genai  # type: ignore # New library for Gemini 2.0
+                except Exception as e:
+                    raise ImportError(
+                        "Missing dependency for Gemini. Install it with: pip install google-genai"
+                    ) from e
+
                 self.gemini_client = genai.Client(api_key=api_key)
             else:
-                # Стандартний клієнт OpenAI (для GPT або Cloud DeepSeek)
+                # Standard OpenAI client (for GPT or DeepSeek Cloud)
+                try:
+                    from openai import OpenAI  # type: ignore
+                except Exception as e:
+                    raise ImportError(
+                        "Missing dependency for OpenAI. Install it with: pip install openai"
+                    ) from e
+
                 self.client = OpenAI(api_key=api_key)
 
         self.system_prompt = """
@@ -59,31 +70,31 @@ class CortexBridge:
         """
 
     def _call_llm(self, prompt):
-        """Внутрішній метод для маршрутизації запитів (Хмара Gemini/OpenAI або Локально)"""
+        """Internal method for routing requests (Gemini/OpenAI cloud or local)."""
         if self.use_cloud:
-            # ЛОГІКА ДЛЯ GOOGLE GEMINI
+            # GOOGLE GEMINI LOGIC
             if "gemini" in self.model_name.lower():
-                # Впроваджуємо цикл повторних спроб для обходу лімітів (Quota management)
+                # Retry loop to handle quota limits (quota management)
                 for attempt in range(3):
                     try:
                         response = self.gemini_client.models.generate_content(
                             model=self.model_name,
                             contents=[self.system_prompt, prompt]
                         )
-                        # Очищуємо відповідь від можливих Markdown-тегів
+                        # Strip potential Markdown fences from the response
                         return response.text.replace("```python", "").replace("```", "").strip()
                     except Exception as e:
                         error_str = str(e)
-                        # Перевіряємо на вичерпання лімітів (429) АБО перевантаження сервера (503)
+                        # Check for quota exhaustion (429) OR server overload (503)
                         if ("429" in error_str or "503" in error_str) and attempt < 2:
-                            wait_time = 40 #
+                            wait_time = 40  # seconds
                             print(f"[!] Сервер Google перевантажений або ліміт вичерпано. Пауза {wait_time}с... (Спроба {attempt + 1}/3)")
                             time.sleep(wait_time)
                         else:
-                            # Якщо помилка не пов'язана з лімітами або спроби вичерпані — кидаємо виняток
+                            # If the error is not quota-related or retries are exhausted, re-raise
                             raise e
             
-            # ЛОГІКА ДЛЯ OPENAI / DEEPSEEK CLOUD
+            # OPENAI / DEEPSEEK CLOUD LOGIC
             else:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
@@ -95,7 +106,14 @@ class CortexBridge:
                 )
                 return response.choices[0].message.content
         else:
-            # ЛОГІКА ДЛЯ ЛОКАЛЬНОГО OLLAMA
+            # LOCAL OLLAMA LOGIC
+            try:
+                import ollama  # type: ignore
+            except Exception as e:
+                raise ImportError(
+                    "Missing dependency for local Ollama. Install it with: pip install ollama"
+                ) from e
+
             response = ollama.generate(
                 model=self.model_name,
                 system=self.system_prompt,

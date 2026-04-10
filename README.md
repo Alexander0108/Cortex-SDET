@@ -56,6 +56,15 @@ Install dependencies and Playwright browser binaries:
 `pip install -r requirements.txt`
 `playwright install`
 
+### Provider SDKs (installed on demand)
+
+The orchestrator supports multiple LLM providers. Their Python SDKs are only required when you actually use that provider.
+They are already included in `requirements.txt`, so if you ran `pip install -r requirements.txt`, you typically don't need to install these separately:
+
+- **OpenAI Cloud**: `pip install openai`
+- **Google Gemini Cloud**: `pip install google-genai`
+- **Local Ollama**: `pip install ollama`
+
 Create a `.env` file in the root directory:
 `OPENAI_API_KEY=your_openai_key`
 `GEMINI_API_KEY=your_gemini_key`
@@ -74,5 +83,9 @@ Install Ollama and pull the recommended lightweight model:
 - **CortexScraper**: Cleans raw HTML, stripping scripts and CSS to provide LLMs with a structured, token-efficient DOM tree.
 - **CortexBridge**: The brain that translates intent into executable Playwright Python code.
 - **CortexReporter**: Aggregates test metadata and constructs HTML artifacts.
+
+## 🧩 Repo notes
+
+- **Editor settings**: `.vscode/` is ignored via `.gitignore` (IDE-specific local settings).
 
 _Designed and engineered by Oleksandr Dermanskij - AQA Engineer & AI Automation Specialist_
