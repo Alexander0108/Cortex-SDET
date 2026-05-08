@@ -1,10 +1,11 @@
 import time
 
 class CortexBridge:
-    def __init__(self, model_name="deepseek-r1:8b", use_cloud=False, api_key=None):
+    def __init__(self, model_name="deepseek-r1:8b", use_cloud=False, api_key=None, use_openrouter=False):
         self.model_name = model_name
         self.use_cloud = use_cloud
-        
+        self.use_openrouter = use_openrouter
+
         # Initialize clients depending on the selected provider
         if self.use_cloud and api_key:
             if "gemini" in self.model_name.lower():
@@ -17,6 +18,19 @@ class CortexBridge:
                     ) from e
 
                 self.gemini_client = genai.Client(api_key=api_key)
+            elif self.use_openrouter:
+                # OpenRouter client (OpenAI-compatible API)
+                try:
+                    from openai import OpenAI  # type: ignore
+                except Exception as e:
+                    raise ImportError(
+                        "Missing dependency for OpenAI. Install it with: pip install openai"
+                    ) from e
+
+                self.client = OpenAI(
+                    api_key=api_key,
+                    base_url="https://openrouter.ai/api/v1"
+                )
             else:
                 # Standard OpenAI client (for GPT or DeepSeek Cloud)
                 try:
@@ -35,7 +49,7 @@ class CortexBridge:
             STRICT RULES:
             1. LANGUAGE: Use ONLY Python with 'playwright.async_api'.
             2. NO SELENIUM: Using Selenium is a critical failure.
-            3. NO CHAT in generation mode. BUT in REPAIR MODE, provide a brief 'DIAGNOSIS' strictly in UKRAINIAN before the code block.
+            3. NO CHAT in generation mode. BUT in REPAIR MODE, provide a brief 'DIAGNOSIS' strictly in ENGLISH before the code block.
             4. LINEAR LOGIC: Do NOT use internal if-statements to "handle" missing elements.
             5. VISUALS & ERROR HANDLING: Wrap the ENTIRE test logic (after browser launch) in a global 'try-except' block. 
                 Inside the 'except' block: 
@@ -46,7 +60,10 @@ class CortexBridge:
             7. BEST PRACTICES: Use 'page.locator()' instead of 'page.query_selector()'.
             8. ASYNC RULES: Never 'await' the page.locator() method. Only 'await' actions like .click(), .fill().
             9. FORBIDDEN: NEVER use local 'try-except' inside the test for specific elements. If an element is missing, let the test crash.
-            10. ANTI-HALLUCINATION: If the requested element is COMPLETELY missing from the HTML context, DO NOT generate code. Output ONLY: "DIAGNOSTIC_FAIL: Element missing".
+            10. DEEP DIAGNOSIS (CRITICAL): If the requested element is COMPLETELY missing from the HTML context, 
+                DO NOT give up. Instead, analyze the HTML context and suggest 2-3 most similar interactive elements 
+                (e.g., other input fields, buttons nearby, or elements with similar aria-labels/placeholders).
+                Output format: "DIAGNOSTIC_FAIL: Element missing. Found similar elements: [list]".
             11. WAIT FOR ELEMENTS: Do NOT use hardcoded page.wait_for_timeout(). Rely on Playwright's auto-waiting.
             12. BROWSER: Always launch browser with 'headless=False' for visual debugging.
             13. INPUT SUBMISSION: When filling forms, if there is no explicit 'Submit' button, use 'await page.keyboard.press("Enter")'. 
@@ -70,7 +87,7 @@ class CortexBridge:
         """
 
     def _call_llm(self, prompt):
-        """Internal method for routing requests (Gemini/OpenAI cloud or local)."""
+        """Internal method for routing requests (Gemini/OpenAI/OpenRouter cloud or local)."""
         if self.use_cloud:
             # GOOGLE GEMINI LOGIC
             if "gemini" in self.model_name.lower():
@@ -88,13 +105,13 @@ class CortexBridge:
                         # Check for quota exhaustion (429) OR server overload (503)
                         if ("429" in error_str or "503" in error_str) and attempt < 2:
                             wait_time = 40  # seconds
-                            print(f"[!] Сервер Google перевантажений або ліміт вичерпано. Пауза {wait_time}с... (Спроба {attempt + 1}/3)")
+                            print(f"[!] Google server overloaded or quota exhausted. Pausing {wait_time}s... (Attempt {attempt + 1}/3)")
                             time.sleep(wait_time)
                         else:
                             # If the error is not quota-related or retries are exhausted, re-raise
                             raise e
-            
-            # OPENAI / DEEPSEEK CLOUD LOGIC
+
+            # OPENAI / DEEPSEEK CLOUD / OPENROUTER LOGIC
             else:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
@@ -125,24 +142,25 @@ class CortexBridge:
     def generate_test(self, html_context, user_task):
         prompt = f"HTML Context:\n{html_context}\n\nTask: {user_task}"
         prefix = "☁️ [CLOUD]" if self.use_cloud else "💻 [LOCAL]"
-        print(f"[*] {prefix} Запит до {self.model_name}...")
+        print(f"[*] {prefix} Request to {self.model_name}...")
         return self._call_llm(prompt)
-    
+
     def repair_test(self, original_code, error_message, current_html, user_task):
         prompt = f"""
-            REPAIR MODE: Попередній тест впав. 
-            ОРИГІНАЛЬНИЙ КОД: {original_code}
-            ПОМИЛКА: {error_message}
-            
-            ЗАВДАННЯ:
-            1. Напиши 'DIAGNOSIS' українською мовою: що саме пішло не так?
-            2. Надай виправлений код.
-            3. Використовуй тільки ті елементи, які є в HTML нижче.
-            4. Враховуй попередні правила синтаксису (ніяких textContent).
-            
-            HTML КОНТЕКСТ:
+            REPAIR MODE: Previous test failed. 
+            ORIGINAL CODE: {original_code}
+            ERROR: {error_message}
+
+            TASK:
+            1. 🧠 Write 'DIAGNOSIS' in English: what exactly went wrong?
+            2. 🔍 If the exact element is missing, analyze the HTML context and suggest 2-3 most similar interactive elements (e.g., other input fields or nearby buttons).
+            3. ✨ Provide fixed code using the found alternatives.
+            4. Use only elements that exist in the HTML below.
+            5. Follow previous syntax rules (no textContent).
+
+            HTML CONTEXT:
             {current_html}
         """
         prefix = "☁️ [CLOUD]" if self.use_cloud else "💻 [LOCAL]"
-        print(f"[*] {prefix} Запит на самовідновлення до {self.model_name}...")
+        print(f"[*] {prefix} Self-healing request to {self.model_name}...")
         return self._call_llm(prompt)

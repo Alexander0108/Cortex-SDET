@@ -15,7 +15,7 @@ class CortexReporter:
         
         html_content = f"""
         <!DOCTYPE html>
-        <html lang="uk">
+        <html lang="en">
         <head>
             <meta charset="UTF-8">
             <title>Cortex-SDET Test Report</title>
@@ -35,17 +35,17 @@ class CortexReporter:
                     <div class="row mb-4">
                         <div class="col-md-8">
                             <p><strong>URL:</strong> <a href="{url}" target="_blank">{url}</a></p>
-                            <p><strong>Завдання:</strong> {task}</p>
-                            <p><strong>Час:</strong> {timestamp}</p>
+                            <p><strong>Task:</strong> {task}</p>
+                            <p><strong>Time:</strong> {timestamp}</p>
                         </div>
                         <div class="col-md-4 text-end">
                             <span class="status-badge">{status}</span>
                         </div>
                     </div>
                     
-                    {f'<h3>❌ Помилка:</h3><pre>{error}</pre>' if error else ''}
+                    {f'<h3>❌ Error:</h3><pre>{error}</pre>' if error else ''}
                     
-                    {f'<h3>📸 Скриншот:</h3><img src="../{screenshot}" class="screenshot-img">' if screenshot and os.path.exists(screenshot) else ''}
+                    {f'<h3>📸 Screenshot:</h3><img src="../{screenshot}" class="screenshot-img">' if screenshot and os.path.exists(screenshot) else ''}
                 </div>
             </div>
         </body>
@@ -55,5 +55,5 @@ class CortexReporter:
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(html_content)
         
-        print(f"\n[📊] ЗВІТ СГЕНЕРОВАНО: {report_path}")
+        print(f"\n[📊] REPORT GENERATED: {report_path}")
         return report_path

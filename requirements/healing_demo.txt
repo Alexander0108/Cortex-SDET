@@ -1,0 +1,1 @@
+Open https://the-internet.herokuapp.com/login. Enter "tomsmith" into the "user_login" field and "SuperSecretPassword!" into the password field.
