@@ -104,7 +104,7 @@ pytest api_tests/ -v
 | `test_json_schema.py` | JSON Schema validation, required fields, data types, nested objects, Swagger spec validation | JSON Schema, Swagger Schema, OpenAPI                               |
 | `test_auth.py`        | Public/private endpoints, SQL injection attempts, XSS, invalid API keys, HTTP methods        | Security testing, API authentication patterns                      |
 
-### What This Demonstrates to Recruiters
+### Skills Demonstrated
 
 > "I perform REST API testing using the PetStore demo API — a standard industry example with full Swagger documentation. My tests cover the complete CRUD cycle (GET, POST, PUT, DELETE), validate JSON Schema contracts, verify response headers and status codes, and test edge cases like invalid IDs and missing fields. The Swagger/OpenAPI spec validation confirms I understand API documentation standards."
 
@@ -161,7 +161,7 @@ user_preferences (user_id, preferences JSON)                [FK → users]
 products (id, name, price, category, stock)                  [standalone]
 ```
 
-### What This Demonstrates to Recruiters
+### Skills Demonstrated
 
 > "I use SQLite for database testing — it requires zero setup and runs in-memory, making tests fast and isolated. My test suite covers all major SQL operations: SELECT with filtering, INNER and LEFT JOINs for relational data, UPDATE for data modification, INSERT/DELETE for CRUD, GROUP BY for aggregations, and subqueries. I also validate JSON data stored in database columns. The sample schema mirrors a real e-commerce system with users, orders, and products."
 
