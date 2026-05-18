@@ -1,5 +1,5 @@
 # Generated from: requirements/login_test.txt
-# Task: As a user, I want to open "", enter "tomsmith" in the "usernme" field and "SuperSecretPassword!" in the password field, and check if I see the welcome message "You logged into a secure area
+# Task: As a user, I want to open "", enter "tomsmith" in the "usernme" field and "SuperSecretPassword!" in the password field, and password field, and check if I see the welcome message "You logged into a secure area
 # Model: deepseek/deepseek-chat
 # Date: 2026-05-08 15:02:45
 

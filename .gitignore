@@ -9,6 +9,9 @@ cleaned_context.txt
 screenshots/
 examples.txt
 
+# Generated tests (runtime artifacts)
+generated_tests/
+
 # Playwright
 reports/
 failure_screenshot.png

@@ -8,8 +8,8 @@ async def test_login():
         try:
             await page.goto("https://the-internet.herokuapp.com/login")
             
-            # Fill in the username field
-            username_field = page.locator("#palyanytsya")
+            # Fill in the username field (corrected selector)
+            username_field = page.locator("#username")
             await username_field.fill("tomsmith")
             
             # Fill in the password field
