@@ -1,0 +1,8 @@
+email,password,role,expected_status
+alice@test.com,pass12345,admin,valid
+bob@test.com,short,user,weak_password
+charlie@test.com,secure123,unknown,invalid_role
+diana@test.com,pass6789,editor,valid
+eve@test.com,pas,admin,weak_password
+frank@test.com,securePass1,admin,valid
+grace@test.com,anotherPass2,user,valid

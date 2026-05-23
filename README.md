@@ -1,7 +1,9 @@
 # 🧠 Cortex-SDET Orchestrator
 
+[![Cortex-SDET Tests](https://github.com/Alexander0108/Cortex-SDET/actions/workflows/test.yml/badge.svg)](https://github.com/Alexander0108/Cortex-SDET/actions/workflows/test.yml)
+
 **Autonomous AI-Powered E2E Testing Framework**  
-**REST API Testing · SQL Database Testing · Data Format Validation**
+**REST API Testing · SQL Database Testing · Data Format Validation · Data-Driven Testing**
 
 Cortex-SDET is a professional-grade QA Automation orchestrator that leverages Large Language Models (LLMs) to generate, execute, and self-heal end-to-end Playwright tests in real-time. It transforms natural-language test descriptions into executable code, dramatically reducing test maintenance costs and eliminating flaky tests.
 
@@ -164,6 +166,52 @@ products (id, name, price, category, stock)                  [standalone]
 ### Skills Demonstrated
 
 > "I use SQLite for database testing — it requires zero setup and runs in-memory, making tests fast and isolated. My test suite covers all major SQL operations: SELECT with filtering, INNER and LEFT JOINs for relational data, UPDATE for data modification, INSERT/DELETE for CRUD, GROUP BY for aggregations, and subqueries. I also validate JSON data stored in database columns. The sample schema mirrors a real e-commerce system with users, orders, and products."
+
+---
+
+## 📊 Data-Driven Testing Module
+
+Parameterized tests that load test scenarios from external CSV and JSON files. Demonstrates separation of test data from test logic — a key QA engineering practice. See `data_driven_tests/` and `data/` directories.
+
+### Interactive CLI Demo
+
+```bash
+python3 data_driven_tests/data_cli.py
+```
+
+A menu-driven interface for viewing test data and running validations:
+
+```
+┌─ ACTIONS ──────────────────────────────────────┐
+│  1. 📄  Show CSV test data (users)             │
+│  2. 📄  Show JSON test data (products)         │
+│  3. 🏃  Run CSV data-driven tests (pytest)     │
+│  4. 🏃  Run JSON data-driven tests (pytest)    │
+│  5. 🏃  Run ALL data-driven tests (pytest)     │
+└─────────────────────────────────────────────────┘
+```
+
+### pytest Suite
+
+```bash
+pytest data_driven_tests/ -v
+```
+
+| Test File             | Covers                                                                       | Requirements Matched                                  |
+| --------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `test_csv_reader.py`  | CSV data loading, `@pytest.mark.parametrize`, email/password/role validation | Test data formats (CSV), data-driven testing patterns |
+| `test_json_reader.py` | JSON data loading, product validation (price, stock, name, category)         | Test data formats (JSON), data validation             |
+
+### Test Data Files
+
+| File                      | Contents                                         | Includes Invalid Data?               |
+| ------------------------- | ------------------------------------------------ | ------------------------------------ |
+| `data/test_users.csv`     | 7 user scenarios (email, password, role, status) | Yes (short passwords, invalid roles) |
+| `data/test_products.json` | 6 products (id, name, price, stock, category)    | Yes (negative price, empty name)     |
+
+### Skills Demonstrated
+
+> "I follow the data-driven testing approach — test data is stored separately from test logic in CSV and JSON files. This allows non-technical team members to add test scenarios without modifying code. Tests use `@pytest.mark.parametrize` to iterate over each data row, and failed validations produce descriptive error messages showing exactly which field failed and why."
 
 ---
 
@@ -409,10 +457,21 @@ Cortex-SDET/
 │   ├── test_database.py       # SELECT, JOIN, UPDATE, INSERT, DELETE, GROUP BY, subqueries
 │   └── test_data_formats.py   # JSON, CSV, XML parsing, validation, cross-format conversion
 │
+├── data_driven_tests/         # 📊 Data-Driven Testing Module (CSV/JSON parameterized tests)
+│   ├── data_cli.py            # Interactive CLI for data-driven test demonstrations
+│   ├── test_csv_reader.py     # Parameterized tests from CSV data
+│   └── test_json_reader.py    # Parameterized tests from JSON data
+│
+├── data/                      # 📁 Test data files (CSV, JSON)
+│   ├── test_users.csv         # User test scenarios
+│   └── test_products.json     # Product test data with valid/invalid records
+│
 ├── requirements/              # Input: .txt files with test descriptions
 ├── generated_tests/           # Output: generated .py tests + .md summaries
 ├── reports/                   # Output: professional HTML reports
 ├── assets/                    # Screenshots for documentation
+├── .github/workflows/         # 🚀 CI/CD: GitHub Actions automation
+│   └── test.yml               # Automated test pipeline (push/PR → pytest)
 └── requirements.txt
 ```
 
@@ -431,6 +490,8 @@ Cortex-SDET/
 | Client-server architecture           | API module (client → server), SQL module (application → database) | `api_tests/`, `sql_tests/`                           |
 | HTTP(S) protocols                    | REST API testing with status codes, headers, methods              | `api_tests/test_petstore.py`                         |
 | Redis knowledge                      | Conceptual documentation with testing scenarios                   | `README.md` — Redis Knowledge section                |
+| Data-driven testing (CSV, JSON)      | Parameterized tests with external data files                      | `data_driven_tests/`, `data/`                        |
+| CI/CD automation                     | GitHub Actions pipeline — auto-runs tests on push/PR              | `.github/workflows/test.yml`                         |
 | Functional, regression, GUI testing  | AI-powered Playwright tests + self-healing                        | `main.py` (core orchestrator)                        |
 
 ---

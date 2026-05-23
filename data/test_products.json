@@ -1,0 +1,8 @@
+[
+    {"id": 1, "name": "Laptop", "price": 999.99, "stock": 15, "category": "Electronics"},
+    {"id": 2, "name": "Mouse", "price": -5.00, "stock": 50, "category": "Accessories"},
+    {"id": 3, "name": "Keyboard", "price": 79.99, "stock": 0, "category": "Accessories"},
+    {"id": 4, "name": "Monitor", "price": 349.99, "stock": -3, "category": "Electronics"},
+    {"id": 5, "name": "USB-C Hub", "price": 45.99, "stock": 100, "category": "Accessories"},
+    {"id": 6, "name": "", "price": 29.99, "stock": 30, "category": "Accessories"}
+]
