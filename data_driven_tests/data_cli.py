@@ -10,6 +10,7 @@ Run: python3 data_driven_tests/data_cli.py
 import csv
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -76,30 +77,124 @@ def action_show_json_data():
               f"${product['price']} | stock={product['stock']}{issue_text}")
 
 
+def _format_pytest_output(stdout):
+    """
+    Post-process pytest stdout for cleaner CLI output:
+    - Hide integrity check lines with a 🔍 prefix
+    - Parse failure reasons from FAILURES section and inject inline on FAILED lines
+    - Remove the FAILURES and short test summary sections (duplicate info)
+    """
+    lines = stdout.split("\n")
+    
+    # First pass: collect FAILED test names (in order) and failure reasons
+    failed_tests = []
+    failure_reasons = []
+    in_failures = False
+    for line in lines:
+        # Collect FAILED test names from progress output
+        if "FAILED" in line and "[" in line:
+            test_name = line.split("[")[1].split("]")[0]
+            failed_tests.append(test_name)
+        
+        # Collect failure reasons from FAILURES section
+        # Format with --tb=line: "/path/to/file.py:line: ErrorType: reason"
+        if line.startswith("=") and "FAILURES" in line:
+            in_failures = True
+            continue
+        if in_failures:
+            if line.startswith("="):
+                in_failures = False
+                continue
+            # Extract reason after the second colon: "/path:line: ErrorType: reason"
+            parts = line.split(":", 2)
+            if len(parts) >= 3:
+                reason = parts[2].strip()
+                # Remove "ErrorType: " prefix for cleaner display
+                reason = re.sub(r"^[A-Za-z]+Error:\s*", "", reason)
+                failure_reasons.append(reason)
+
+    # Map each FAILED test to its reason by index
+    test_reason_map = {}
+    for i, test_name in enumerate(failed_tests):
+        if i < len(failure_reasons):
+            test_reason_map[test_name] = failure_reasons[i]
+
+    # Second pass: build formatted output
+    formatted = []
+    in_failures = False
+    in_summary = False
+
+    for line in lines:
+        # Skip FAILURES section
+        if line.startswith("=") and "FAILURES" in line:
+            in_failures = True
+            continue
+        if in_failures:
+            if line.startswith("=") and "short test summary" in line:
+                in_failures = False
+                in_summary = True
+            continue
+
+        # Skip short test summary
+        if in_summary:
+            if line.startswith("=") and "passed in" in line:
+                in_summary = False
+                formatted.append(line)
+            continue
+
+        # Annotate integrity lines with a 🔍 prefix
+        if "integrity" in line and ("PASSED" in line or "FAILED" in line):
+            formatted.append(f"  🔍 {line.split('::')[1].replace('PASSED','').replace('FAILED','').strip()} ... ✅")
+            continue
+
+        # Inject failure reason inline on FAILED lines
+        if "FAILED" in line and "[" in line:
+            test_name = line.split("[")[1].split("]")[0]
+            if test_name in test_reason_map:
+                formatted.append(f"{line.rstrip()} — {test_reason_map[test_name]}")
+                continue
+
+        formatted.append(line)
+
+    return "\n".join(formatted)
+
+
+def _summary_from_stdout(stdout):
+    """
+    Parse pytest summary line like '9 passed, 6 failed' from stdout.
+    Falls back to counting 'PASSED' / 'FAILED' tokens in output.
+    """
+    match = re.search(r"(\d+)\s+passed", stdout)
+    passed = int(match.group(1)) if match else stdout.count("PASSED") - stdout.count("test session")
+    match = re.search(r"(\d+)\s+failed", stdout)
+    failed = int(match.group(1)) if match else stdout.count("FAILED") - stdout.count("FAILURES")
+    return passed, failed
+
+
 def action_run_csv_tests():
     """Run CSV data-driven tests via pytest"""
     print_header("🏃 RUN CSV DATA-DRIVEN TESTS")
     
     result = subprocess.run(
         [sys.executable, "-m", "pytest", os.path.join(os.path.dirname(__file__), "test_csv_reader.py"),
-         "-v", "--tb=short"],
+         "-v", "--tb=line"],
         capture_output=True,
         text=True
     )
     
-    print("\n" + result.stdout[:500])
+    output = _format_pytest_output(result.stdout)
+    print("\n" + output)
     if result.stderr:
-        print(f"  stderr: {result.stderr[:200]}")
+        print(f"  stderr: {result.stderr}")
     
-    # Parse pass/fail count
-    passed = result.stdout.count("PASSED")
-    failed = result.stdout.count("FAILED")
+    passed, failed = _summary_from_stdout(result.stdout)
     total = passed + failed
     
+    print()
     if result.returncode == 0:
-        print(f"\n  ✅ ALL {total} TESTS PASSED!")
+        print(f"  ✅ ALL {total} TESTS PASSED!")
     else:
-        print(f"\n  ❌ {failed}/{total} TESTS FAILED")
+        print(f"  ❌ {failed}/{total} TESTS FAILED")
 
 
 def action_run_json_tests():
@@ -108,24 +203,24 @@ def action_run_json_tests():
     
     result = subprocess.run(
         [sys.executable, "-m", "pytest", os.path.join(os.path.dirname(__file__), "test_json_reader.py"),
-         "-v", "--tb=short"],
+         "-v", "--tb=line"],
         capture_output=True,
         text=True
     )
     
-    print("\n" + result.stdout[:500])
+    output = _format_pytest_output(result.stdout)
+    print("\n" + output)
     if result.stderr:
-        print(f"  stderr: {result.stderr[:200]}")
+        print(f"  stderr: {result.stderr}")
     
-    # Parse pass/fail count
-    passed = result.stdout.count("PASSED")
-    failed = result.stdout.count("FAILED")
+    passed, failed = _summary_from_stdout(result.stdout)
     total = passed + failed
     
+    print()
     if result.returncode == 0:
-        print(f"\n  ✅ ALL {total} TESTS PASSED!")
+        print(f"  ✅ ALL {total} TESTS PASSED!")
     else:
-        print(f"\n  ❌ {failed}/{total} TESTS FAILED")
+        print(f"  ❌ {failed}/{total} TESTS FAILED")
 
 
 def action_run_all():
@@ -134,23 +229,24 @@ def action_run_all():
     
     result = subprocess.run(
         [sys.executable, "-m", "pytest", os.path.dirname(__file__),
-         "-v", "--tb=short"],
+         "-v", "--tb=line"],
         capture_output=True,
         text=True
     )
     
-    print("\n" + result.stdout[:800])
+    output = _format_pytest_output(result.stdout)
+    print("\n" + output)
     if result.stderr:
-        print(f"  stderr: {result.stderr[:200]}")
+        print(f"  stderr: {result.stderr}")
     
-    passed = result.stdout.count("PASSED")
-    failed = result.stdout.count("FAILED")
+    passed, failed = _summary_from_stdout(result.stdout)
     total = passed + failed
     
+    print()
     if result.returncode == 0:
-        print(f"\n  ✅ ALL {total} TESTS PASSED!")
+        print(f"  ✅ ALL {total} TESTS PASSED!")
     else:
-        print(f"\n  ❌ {failed}/{total} TESTS FAILED — see details above")
+        print(f"  ❌ {failed}/{total} TESTS FAILED — see details above")
 
 
 # ─────────────────────────────────────────────────────────────────────

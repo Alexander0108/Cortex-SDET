@@ -22,3 +22,6 @@ generated_test_result.py
 
 # IDE / Editor
 .vscode/
+
+# Project Documentation (Internal)
+project_analysis.md
