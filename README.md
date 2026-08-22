@@ -51,18 +51,22 @@ When a locator changes or an element goes missing:
 1. **Intercept**: Catch the crash with full Traceback
 2. **Diagnose**: AI analyzes the DOM state and error message
 3. **Suggest alternatives**: If the exact element is missing, the AI finds 2-3 similar interactive elements (other inputs, buttons, etc.)
-4. **Patch**: Automatically rewrite the test file with corrected selectors
-5. **Retry**: Re-execute the fixed test
-6. **Report**: Generate a detailed report with `"FIXED BY AI"` status
+4. **Show diff (Human-in-the-Loop)**: The system displays a compact `BEFORE → AFTER` code diff (🔴 removed / 🟢 added lines) so you see **exactly** what AI wants to change
+5. **Confirm**: You approve (`y`) or reject (`n`) the fix — AI never silently rewrites your tests
+6. **Patch & Retry**: Apply the fix, re-execute the test
+7. **Report**: Generate a detailed report with `"FIXED BY AI"` status
+
+> 🔒 **Safety by design**: Batch mode also asks for confirmation before applying an AI patch. The user stays in control of every code change.
 
 ### 📦 Batch Mode
 
 Process multiple test requirements in a single run:
 
 1. Place `.txt` files in `requirements/` with natural-language descriptions
-2. The orchestrator extracts URLs via regex and generates Playwright tests
-3. **Smart Skip**: Compares file timestamps — if the `.py` test is newer than the `.txt` requirement, it asks: _"(1) Run existing / (2) Regenerate"_
-4. Each test generates:
+2. **Important:** each `.txt` file must contain an `http(s)://` link to the target page (e.g. `"Open https://site.com and login"`). Files without a URL are skipped with a hint
+3. The orchestrator extracts URLs via regex and generates Playwright tests
+4. **Smart Skip**: Compares file timestamps — if the `.py` test is newer than the `.txt` requirement, it asks: _"(1) Run existing / (2) Regenerate"_
+5. Each test generates:
    - `generated_tests/test_[name].py` — executable Playwright test
    - `generated_tests/test_[name].md` — Markdown summary with status, model, errors, and self-healing details
    - `reports/report_[timestamp].html` — professional HTML report
@@ -298,33 +302,65 @@ OPENROUTER_API_KEY=your_openrouter_key
 ollama pull qwen2.5:3b
 ```
 
-### Run the AI-Powered UI Testing Orchestrator
+### Run the Unified Control Center (single entry point for ALL modules)
 
 ```bash
 python3 main.py
 ```
 
-You will be prompted to select:
+The master hub replaces the old separate CLI entry points:
 
-1. **Mode**: Interactive (manual) or Batch (automatic from `requirements/`)
-2. **Provider**: Local (Qwen), OpenAI, Google Gemini, or OpenRouter (DeepSeek V4)
+1. **Language selection** — the chosen language localizes the **entire interface** (menu, hints, Quick Guide) and AI answers:
+   - 🇺🇦 **Українська** (professional terms, error codes and code stay in English)
+   - 🇬🇧 **English**
+2. **Mode**: AI Interactive (manual) or AI Batch (automatic from `requirements/`)
+3. **Provider**: Local (Qwen), OpenAI, Google Gemini, or OpenRouter (DeepSeek V4)
 
-### Run API Tests (Interactive CLI)
+The hub then gives you one localized menu with every module and short hints:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ 🤖 AI AGENTIC TESTING                                                  │
+│ 1. 💬 Interactive UI Generator                                         │
+│    └─ build a Playwright test from URL + Self-Healing                  │
+│ 2. 📦 Batch Test Generator                                             │
+│    └─ auto-generate & run tests from requirements/                     │
+│ 🔌 TESTING SUITES                                                      │
+│ 3. 🌐 REST API Testing                                                 │
+│    └─ PetStore CRUD, JSON Schema & API security checks                 │
+│ 4. 📁 SQL DB & Data Formats                                            │
+│    └─ SQLite queries (JOIN/GROUP BY) & JSON/CSV/XML validation         │
+│ 5. 📊 Data-Driven Testing                                              │
+│    └─ business rule validation for users/products from CSV/JSON        │
+│ 🚀 ALL-IN-ONE & REPORTING                                              │
+│ 6. ⚡ Run FULL Test Suite                                              │
+│    └─ run all 67 tests at once (API + SQL + Data-Driven)               │
+│ 7. 📑 Generate Unified Dashboard                                       │
+│    └─ HTML index of all reports, screenshots & AI summaries            │
+│ 📖 INFO                                                                │
+│ 8. 💡 About / Quick Guide                                              │
+│    └─ quick overview: what it is, where data comes from, how it works  │
+│ 0. ❌ Exit                                                             │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+- Options 3-5 launch the module CLIs **inside** the hub — you return to the menu automatically when they finish.
+- Option **8** prints a compact bilingual guide: where tests & data come from, what the 6 expected DDT failures mean, and how Self-Healing works.
+
+### Run modules directly (alternative)
+
+Each module still works standalone:
 
 ```bash
-python3 api_tests/api_cli.py
+python3 api_tests/api_cli.py            # API testing CLI
+python3 sql_tests/sql_cli.py            # SQL testing CLI
+python3 data_driven_tests/data_cli.py   # Data-Driven testing CLI
 ```
 
 ### Run API Tests (pytest Suite)
 
 ```bash
 pytest api_tests/ -v
-```
-
-### Run SQL Tests (Interactive CLI)
-
-```bash
-python3 sql_tests/sql_cli.py
 ```
 
 ### Run SQL Tests (pytest Suite)

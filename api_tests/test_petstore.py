@@ -151,8 +151,9 @@ def test_create_pet_without_required_field():
 
 def test_update_pet():
     """PUT /pet — update an existing pet's name and status"""
-    # First create a pet
-    pet_id = 888888
+    # First create a pet (random ID to avoid collisions on shared PetStore API)
+    import random
+    pet_id = random.randint(100000, 999999)
     create_response = requests.post(f"{BASE_URL}/pet", json={
         "id": pet_id,
         "name": "OldName",
@@ -186,8 +187,9 @@ def test_update_pet():
 
 def test_delete_pet():
     """DELETE /pet/{petId} — delete a pet and verify it's gone"""
-    # First create a pet to delete
-    pet_id = 777777
+    # First create a pet to delete (random ID to avoid collisions on shared API)
+    import random
+    pet_id = random.randint(100000, 999999)
     create_response = requests.post(f"{BASE_URL}/pet", json={
         "id": pet_id,
         "name": "DeleteMe",

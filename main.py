@@ -1,4 +1,4 @@
-import asyncio, re, os, subprocess, warnings
+import asyncio, re, os, subprocess, sys, warnings
 from datetime import datetime
 from dotenv import load_dotenv
 from scraper import CortexScraper
@@ -218,55 +218,59 @@ async def run_agentic_qa(url, task, bridge):
     reporter.generate_report(url, task, status, error_msg, screenshot_path)
 
     if not success:
+        lang = getattr(bridge, "language", "en")  # for localized UI
+
         # Check screenshot before repair
         screenshot_path = os.path.join(os.path.dirname(__file__), "failure_screenshot.png")
         if os.path.exists(screenshot_path):
-            print(f"[📸] Error screenshot found: {screenshot_path}")
+            print(f"{t(lang, 'sh_screenshot')} {screenshot_path}")
 
-        print("[🛠] STARTING REPAIR...")
+        print(t(lang, "sh_starting"))
         raw_repaired = bridge.repair_test(generated_code, error_msg, cleaned_html, task)
         repaired_code = extract_code(raw_repaired)
 
         print("\n" + "~"*50)
-        print("🧠 AI DIAGNOSIS:")
+        print(t(lang, "sh_diagnosis"))
         print(extract_diagnosis(raw_repaired))
         print("~"*50)
 
         if "DIAGNOSTIC_FAIL" in raw_repaired:
             print("\n" + "!"*50)
-            print("🛑 AI AGENT DETECTED A CRITICAL FAILURE:")
+            print(t(lang, "sh_critical"))
             print(f"Message: {raw_repaired.strip()}")
-            print("Explanation: The requested element is missing from the DOM tree. AI refused to create a false test.")
+            print(t(lang, "sh_critical_explanation"))
             print("!"*50)
             return
 
-        # Show code for review
+        # Human-in-the-Loop: show a compact diff BEFORE applying
         print("\n" + "="*50)
-        print("✨ AI SUGGESTED FIX:")
+        print(t(lang, "sh_diff_header"))
+        print(t(lang, "sh_diff_legend"))
         print("-" * 50)
-        print(repaired_code)
-        print("-" * 50)
+        print(code_diff_summary(generated_code, repaired_code))
+        print("="*50)
 
         # INTERACTIVE MODE: ask for confirmation
-        user_choice = input("✅ Apply this fix? (y/n): ").lower()
+        user_choice = input(t(lang, "sh_confirm")).lower()
 
         if user_choice == 'y':
+            print(t(lang, "sh_applied"))
             apply_test_fix(test_file, repaired_code)
 
-            print("[*] Restarting fixed test...")
+            print(t(lang, "sh_restarting"))
             success, error_msg = await execute_test(test_file)
 
             if success:
-                print("[✨] ✨ SELF-HEALING SUCCESSFUL!")
+                print(t(lang, "sh_success"))
             else:
-                print("[💀] ❌ AI could not fix this.")
+                print(t(lang, "sh_failed"))
                 if error_msg:
-                    print(f"Final error:\n{error_msg}")
+                    print(f"{t(lang, 'sh_final_error')}\n{error_msg}")
         else:
-            print("[⚠️] Repair cancelled by user. Exiting.")
+            print(t(lang, "sh_cancelled"))
 
 
-def parse_task_file(file_path):
+def parse_task_file(file_path, lang="en"):
     """
     Parses task file from requirements/.
     Searches for URL in text using regex.
@@ -280,7 +284,16 @@ def parse_task_file(file_path):
     if url_match:
         url = url_match.group(0).rstrip('.,;:!?)')
     else:
-        print(f"[!] No URL found in {file_path}")
+        if lang == "uk":
+            print(f"\n[!] У файлі {file_path} не знайдено посилання (URL).")
+            print("    Файл буде пропущено.")
+            print("    Додайте http/https посилання прямо в текст вимоги, наприклад:")
+            print('    "Open https://site.com and login"')
+        else:
+            print(f"\n[!] No URL found in {file_path}.")
+            print("    File skipped.")
+            print("    Please include an http/https link inside the requirement text, e.g.:")
+            print('    "Open https://site.com and login"')
         return None, None
 
     # Remove URL from text to get clean task description
@@ -300,7 +313,7 @@ async def generate_from_file(file_path, bridge):
     """
     print(f"\n[STEP] ===== Processing file: {os.path.basename(file_path)} =====")
     print(f"[READING] File: {file_path}")
-    url, task = parse_task_file(file_path)
+    url, task = parse_task_file(file_path, getattr(bridge, "language", "en"))
 
     if not url or not task:
         print(f"[!] Skipping {file_path}: unable to parse URL or task.")
@@ -339,36 +352,49 @@ async def generate_from_file(file_path, bridge):
                 print("[!] AssertionError: logged as an application bug. Test code unchanged.")
                 status = "FAILED (Assertion Bug)"
             elif error_type in ("selector", "unknown"):
-                # Self-healing for existing test
-                print("[🛠] STARTING SELF-HEALING FOR EXISTING TEST...")
+                # Self-healing for existing test — Human-in-the-Loop
+                lang = getattr(bridge, "language", "en")
+                print(t(lang, "sh_starting"))
                 try:
                     cleaned_html = await scraper.get_cleaned_html(url)
-                    raw_repaired = bridge.repair_test(
-                        open(output_file, "r").read(), error_msg, cleaned_html, task
-                    )
+                    old_code = open(output_file, "r").read()
+                    raw_repaired = bridge.repair_test(old_code, error_msg, cleaned_html, task)
                     repaired_code = extract_code(raw_repaired)
                     diagnosis = extract_diagnosis(raw_repaired)
-                    print(f"\n🧠 Diagnosis: {diagnosis[:200]}{'...' if len(diagnosis) > 200 else ''}")
+                    print(f"\n{t(lang, 'sh_diagnosis')} {diagnosis[:200]}{'...' if len(diagnosis) > 200 else ''}")
 
                     if "DIAGNOSTIC_FAIL" not in raw_repaired:
-                        print("[🛠] Applying automated fix...")
-                        old_snippet = open(output_file, "r").read()[:200]
-                        apply_test_fix(output_file, repaired_code)
+                        # Show compact diff and ask for confirmation
+                        print("\n" + "="*50)
+                        print(t(lang, "sh_diff_header"))
+                        print(t(lang, "sh_diff_legend"))
+                        print("-" * 50)
+                        print(code_diff_summary(old_code, repaired_code))
+                        print("="*50)
 
-                        print("[EXECUTING] Restarting fixed test...")
-                        success, error_msg = await execute_test(output_file)
+                        user_choice = input(t(lang, "sh_confirm")).lower()
 
-                        if success:
-                            print("[✨] ✨ SELF-HEALING SUCCESSFUL!")
-                            status = "FIXED BY AI"
-                            repair_details = {
-                                'diagnosis': diagnosis,
-                                'notes': f"Self-healed existing test. Old snippet: {old_snippet[:100]}..."
-                            }
+                        if user_choice == 'y':
+                            print(t(lang, "sh_applied"))
+                            old_snippet = old_code[:200]
+                            apply_test_fix(output_file, repaired_code)
+
+                            print(t(lang, "sh_restarting"))
+                            success, error_msg = await execute_test(output_file)
+
+                            if success:
+                                print(t(lang, "sh_success"))
+                                status = "FIXED BY AI"
+                                repair_details = {
+                                    'diagnosis': diagnosis,
+                                    'notes': f"Self-healed existing test. Old snippet: {old_snippet[:100]}..."
+                                }
+                            else:
+                                print(t(lang, "sh_failed"))
+                                if error_msg:
+                                    print(f"{t(lang, 'sh_final_error')}\n{error_msg}")
                         else:
-                            print("[💀] ❌ AI could not fix this.")
-                            if error_msg:
-                                print(f"Final error:\n{error_msg}")
+                            print(t(lang, "sh_cancelled"))
                     else:
                         print(f"\n[!] AI could not fix: element missing from DOM.")
                         print(f"[!] Similar elements found: {raw_repaired}")
@@ -419,18 +445,20 @@ async def generate_from_file(file_path, bridge):
         # Create .md summary for successful test
         create_test_summary_md(base_name, url, task, bridge.model_name, status, report_path)
     else:
-        # Self-healing: attempt automatic repair
+        lang = getattr(bridge, "language", "en")  # for localized UI
+
+        # Self-healing: attempt repair with user confirmation (Human-in-the-Loop)
         screenshot_full = os.path.join(os.path.dirname(__file__), "failure_screenshot.png")
         if os.path.exists(screenshot_full):
-            print(f"[📸] Error screenshot found: {screenshot_full}")
+            print(f"{t(lang, 'sh_screenshot')} {screenshot_full}")
 
-        print("[🛠] STARTING REPAIR (BATCH MODE)...")
+        print(t(lang, "sh_starting"))
         raw_repaired = bridge.repair_test(generated_code, error_msg, cleaned_html, task)
         repaired_code = extract_code(raw_repaired)
 
         # Extract diagnosis for report
         diagnosis = extract_diagnosis(raw_repaired)
-        print(f"\n🧠 Diagnosis: {diagnosis[:200]}{'...' if len(diagnosis) > 200 else ''}")
+        print(f"\n{t(lang, 'sh_diagnosis')} {diagnosis[:200]}{'...' if len(diagnosis) > 200 else ''}")
 
         if "DIAGNOSTIC_FAIL" in raw_repaired:
             print(f"\n[!] AI could not fix test: element missing from DOM.")
@@ -440,25 +468,38 @@ async def generate_from_file(file_path, bridge):
             create_test_summary_md(base_name, url, task, bridge.model_name, status, report_path, error_msg)
             return
 
-        # BATCH MODE: automatic fix application WITHOUT confirmation
-        print("[🛠] Applying automated fix...")
+        # Human-in-the-Loop: show compact diff and ask for confirmation
+        print("\n" + "="*50)
+        print(t(lang, "sh_diff_header"))
+        print(t(lang, "sh_diff_legend"))
+        print("-" * 50)
+        print(code_diff_summary(generated_code, repaired_code))
+        print("="*50)
+
+        user_choice = input(t(lang, "sh_confirm")).lower()
+
+        if user_choice != 'y':
+            print(t(lang, "sh_cancelled"))
+            create_test_summary_md(base_name, url, task, bridge.model_name, status, report_path, error_msg)
+            return
 
         # Save old code for report (first 200 characters)
         old_code_snippet = generated_code[:200]
 
         # Apply fix
+        print(t(lang, "sh_applied"))
         apply_test_fix(output_file, repaired_code)
 
-        print("[EXECUTING] Restarting fixed test...")
+        print(t(lang, "sh_restarting"))
         success, error_msg = await execute_test(output_file)
 
         if success:
-            print("[✨] ✨ SELF-HEALING SUCCESSFUL!")
+            print(t(lang, "sh_success"))
             status = "PASSED (after self-heal)"
         else:
-            print("[💀] ❌ AI could not fix this.")
+            print(t(lang, "sh_failed"))
             if error_msg:
-                print(f"Final error:\n{error_msg}")
+                print(f"{t(lang, 'sh_final_error')}\n{error_msg}")
 
         # Collect repair details for .md report
         repair_details = {
@@ -509,6 +550,284 @@ async def batch_process(bridge):
     print("="*50)
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# UNIFIED CONTROL CENTER — helpers for the master hub
+# ══════════════════════════════════════════════════════════════════════════
+
+def select_language():
+    """
+    Asks the user which language AI should use for natural-language answers.
+    Technical terms, error codes and exceptions always stay in English.
+    Returns: "en" or "uk"
+    """
+    print("\n┌─ AI RESPONSE LANGUAGE ─────────────────────────┐")
+    print("│  1. 🇺🇦  Українська                              │")
+    print("│      (AI відповідає українською; професійні     │")
+    print("│       терміни, коди помилок та код — англійською)│")
+    print("│                                                 │")
+    print("│  2. 🇬🇧  English                                 │")
+    print("│      (AI answers in English by default)         │")
+    print("└─────────────────────────────────────────────────┘")
+
+    while True:
+        choice = input("\n👉 Select language (1 or 2): ").strip()
+        if choice == "1":
+            print("[✅] AI language set to: 🇺🇦 Українська")
+            return "uk"
+        elif choice == "2":
+            print("[✅] AI language set to: 🇬🇧 English")
+            return "en"
+        print("⚠️  Invalid choice. Please enter 1 or 2.")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# BILINGUAL UI — all hub texts in Ukrainian and English
+# ══════════════════════════════════════════════════════════════════════════
+
+TRANSLATIONS = {
+    "uk": {
+        "welcome_title": "🧠  ВІТАЄМО У CORTEX-SDET ORCHESTRATOR",
+        "welcome_subtitle": "    Єдиний центр керування: AI · API · SQL · DDT",
+        "menu_ai": "🤖 AI-ТЕСТУВАННЯ",
+        "opt1_title": "1. 💬 Інтерактивний генератор UI",
+        "opt1_desc": "   └─ створює Playwright-тест за описом сайту + Self-Healing",
+        "opt2_title": "2. 📦 Пакетний генератор тестів",
+        "opt2_desc": "   └─ автоматично генерує та запускає тести з папки requirements/",
+        "menu_suites": "🔌 ТЕСТОВІ МОДУЛІ",
+        "opt3_title": "3. 🌐 REST API Тестування",
+        "opt3_desc": "   └─ CRUD PetStore, JSON Schema та перевірка безпеки API",
+        "opt3_short": "REST API Тестування",
+        "opt4_title": "4. 📁 SQL БД та Формати даних",
+        "opt4_desc": "   └─ запити SQLite (JOIN/GROUP BY) та валідація JSON/CSV/XML",
+        "opt4_short": "SQL БД та Формати даних",
+        "opt5_title": "5. 📊 Data-Driven Тестування",
+        "opt5_desc": "   └─ валідація бізнес-правил користувачів і товарів з CSV/JSON",
+        "opt5_short": "Data-Driven Тестування",
+        "menu_allinone": "🚀 ВСЕ-В-ОДНОМУ ТА ЗВІТИ",
+        "opt6_title": "6. ⚡ Запуск ПОВНОГО набору тестів",
+        "opt6_desc": "   └─ миттєвий прогін усіх 67 тестів (API + SQL + Data-Driven)",
+        "opt7_title": "7. 📑 Генерація єдиного Dashboard",
+        "opt7_desc": "   └─ HTML-індекс усіх звітів, скріншотів та саммарі AI",
+        "menu_info": "📖 ДОВІДКА",
+        "opt8_title": "8. 💡 About / Quick Guide",
+        "opt8_desc": "   └─ короткий огляд: що це, звідки дані, як працює",
+        "opt0": "0. ❌ Вихід",
+        "menu_prompt": "\n👉 Оберіть опцію: ",
+        "invalid_choice": "⚠️  Некоректний вибір. Введіть 0-8.",
+        "exit_msg": "\n👋 Вихід з Cortex-SDET. До побачення!",
+        "enter_module": "🔌 ВХІД У МОДУЛЬ",
+        "back_to_hub": "✅ ПОВЕРНЕННЯ В ХАБ — модуль",
+        "launching": "[*] Запуск:",
+        "module_not_found": "[❌] Модуль не знайдено:",
+        "module_interrupted": "\n[⚠️] Модуль перервано користувачем. Повертаємось у хаб...",
+        "module_exit_code": "[!] Модуль завершився з кодом",
+        "select_option": "\n👉 Оберіть опцію: ",
+        # Self-healing UI (Human-in-the-Loop)
+        "sh_starting": "[🛠] ЗАПУСК РЕМОНТУ (SELF-HEALING)...",
+        "sh_screenshot": "[📸] Скріншот помилки знайдено:",
+        "sh_diagnosis": "🧠 ДІАГНОСТИКА AI:",
+        "sh_diff_header": "🔄 ЗМІНИ, ЯКІ ПРОПОНУЄ AI:",
+        "sh_diff_legend": "   (рядки з 🔴 — видалено, з 🟢 — додано; решта — контекст)",
+        "sh_suggested": "✨ ПРОПОНОВАНИЙ КОД AI (повністю):",
+        "sh_confirm": "✅ Застосувати це виправлення до файлу тесту? (y/n): ",
+        "sh_applied": "✅ Виправлення застосовано. Тест оновлено.",
+        "sh_restarting": "[*] Перезапуск виправленого тесту...",
+        "sh_success": "[✨] SELF-HEALING УСПІШНИЙ! Тест пройдено після виправлення.",
+        "sh_failed": "[💀] ❌ AI не зміг виправити цей тест.",
+        "sh_final_error": "Фінальна помилка:",
+        "sh_cancelled": "[⚠️] Виправлення скасовано користувачем. Файл не змінено.",
+        "sh_critical": "🛑 AI-АГЕНТ ВИЯВИВ КРИТИЧНИЙ ЗБІЙ:",
+        "sh_critical_explanation": "Пояснення: потрібний елемент відсутній у DOM. AI відмовився створювати хибний тест.",
+    },
+
+    "en": {
+        "welcome_title": "🧠  WELCOME TO CORTEX-SDET ORCHESTRATOR",
+        "welcome_subtitle": "    Unified Control Center: AI · API · SQL · DDT",
+        "menu_ai": "🤖 AI AGENTIC TESTING",
+        "opt1_title": "1. 💬 Interactive UI Generator",
+        "opt1_desc": "   └─ build a Playwright test from URL + Self-Healing",
+        "opt2_title": "2. 📦 Batch Test Generator",
+        "opt2_desc": "   └─ auto-generate & run tests from requirements/",
+        "menu_suites": "🔌 TESTING SUITES",
+        "opt3_title": "3. 🌐 REST API Testing",
+        "opt3_desc": "   └─ PetStore CRUD, JSON Schema & API security checks",
+        "opt3_short": "REST API Testing",
+        "opt4_title": "4. 📁 SQL DB & Data Formats",
+        "opt4_desc": "   └─ SQLite queries (JOIN/GROUP BY) & JSON/CSV/XML validation",
+        "opt4_short": "SQL DB & Data Formats",
+        "opt5_title": "5. 📊 Data-Driven Testing",
+        "opt5_desc": "   └─ business rule validation for users/products from CSV/JSON",
+        "opt5_short": "Data-Driven Testing",
+        "menu_allinone": "🚀 ALL-IN-ONE & REPORTING",
+        "opt6_title": "6. ⚡ Run FULL Test Suite",
+        "opt6_desc": "   └─ run all 67 tests at once (API + SQL + Data-Driven)",
+        "opt7_title": "7. 📑 Generate Unified Dashboard",
+        "opt7_desc": "   └─ HTML index of all reports, screenshots & AI summaries",
+        "menu_info": "📖 INFO",
+        "opt8_title": "8. 💡 About / Quick Guide",
+        "opt8_desc": "   └─ quick overview: what it is, where data comes from, how it works",
+        "opt0": "0. ❌ Exit",
+        "menu_prompt": "\n👉 Select option: ",
+        "invalid_choice": "⚠️  Invalid choice. Please enter 0-8.",
+        "exit_msg": "\n👋 Exiting Cortex-SDET. Goodbye!",
+        "enter_module": "🔌 ENTERING MODULE:",
+        "back_to_hub": "✅ BACK TO HUB — module",
+        "launching": "[*] Launching:",
+        "module_not_found": "[❌] Module not found:",
+        "module_interrupted": "\n[⚠️] Module interrupted by user. Returning to hub...",
+        "module_exit_code": "[!] Module exited with code",
+        "select_option": "\n👉 Select option: ",
+        # Self-healing UI (Human-in-the-Loop)
+        "sh_starting": "[🛠] STARTING SELF-HEALING REPAIR...",
+        "sh_screenshot": "[📸] Error screenshot found:",
+        "sh_diagnosis": "🧠 AI DIAGNOSIS:",
+        "sh_diff_header": "🔄 CHANGES PROPOSED BY AI:",
+        "sh_diff_legend": "   (🔴 = removed, 🟢 = added; other lines are context)",
+        "sh_suggested": "✨ FULL SUGGESTED AI CODE:",
+        "sh_confirm": "✅ Apply this fix to the test file? (y/n): ",
+        "sh_applied": "✅ Fix applied. Test file updated.",
+        "sh_restarting": "[*] Restarting fixed test...",
+        "sh_success": "[✨] SELF-HEALING SUCCESSFUL! Test passed after the fix.",
+        "sh_failed": "[💀] ❌ AI could not fix this test.",
+        "sh_final_error": "Final error:",
+        "sh_cancelled": "[⚠️] Repair cancelled by user. File left unchanged.",
+        "sh_critical": "🛑 AI AGENT DETECTED A CRITICAL FAILURE:",
+        "sh_critical_explanation": "Explanation: the requested element is missing from the DOM. AI refused to create a false test.",
+    },
+}
+
+
+def t(lang, key):
+    """Localized string lookup — falls back to English."""
+    return TRANSLATIONS.get(lang, TRANSLATIONS["en"]).get(key, TRANSLATIONS["en"].get(key, key))
+
+
+def code_diff_summary(old_code, new_code, max_lines=18):
+    """
+    Builds a compact 'BEFORE → AFTER' diff between two code versions.
+    Only changed lines are shown (unified diff). Returns a string.
+    """
+    import difflib
+    old_lines = old_code.splitlines()
+    new_lines = new_code.splitlines()
+    diff = list(difflib.unified_diff(old_lines, new_lines, lineterm="", n=1))
+
+    shown = 0
+    out = []
+    for line in diff[2:]:  # skip ---/+++ headers
+        if line.startswith("+++") or line.startswith("---"):
+            continue
+        if line.startswith("@@"):
+            out.append(f"   {line}")
+            continue
+        if line.startswith("+"):
+            out.append(f"   🟢 {line[1:]}")
+            shown += 1
+        elif line.startswith("-"):
+            out.append(f"   🔴 {line[1:]}")
+            shown += 1
+        else:
+            out.append(f"      {line[1:]}")
+        if shown >= max_lines:
+            out.append(f"   ... (truncated, {len(diff)} diff lines total)")
+            break
+
+    if not out:
+        return "   (no code changes detected)"
+    return "\n".join(out)
+
+
+def show_quick_guide(lang):
+    """Prints a compact bilingual framework overview directly in the terminal."""
+    if lang == "uk":
+        guide = """
+┌─ 💡 CORTEX-SDET — КОРОТКИЙ ГІД ──────────────────────────────────────────┐
+│                                                                          │
+│  ЩО ЦЕ?                                                                  │
+│  Оркестратор тестування з AI-ядром: генерує, запускає та                 │
+│  самостійно лікує Playwright-тести за текстовими описами.                │
+│                                                                          │
+│  ГОТОВІ (pre-built) ТЕСТИ — вже написані та лежать у репозиторії:        │
+│  • API (пункт 3): api_tests/ — CRUD, JSON Schema, безпека (PetStore)    │
+│  • SQL (пункт 4): sql_tests/ — запити + формати даних (SQLite in-memory)│
+│  • Data-Driven (пункт 5): data_driven_tests/ — валідація CSV/JSON       │
+│    бізнес-правил: email/@, пароль ≥ 8, роль admin/user/editor,          │
+│    ціна > 0, stock ≥ 0. ⚠️ 6 негативних записів ПАДАЮТЬ навмисно!       │
+│                                                                          │
+│  AI-ГЕНЕРОВАНІ ТЕСТИ — створюються на льоту (пункти 1-2):               │
+│  • Interactive (пункт 1): ви вводите URL + опис у терміналі,            │
+│    AI пише тест і зберігає у generated_test_result.py                   │
+│  • Batch (пункт 2): AI читає файли з requirements/ і генерує            │
+│    окремий тест для кожного: generated_tests/test_<name>.py             │
+│                                                                          │
+│  ФОРМАТ ФАЙЛІВ У requirements/ (важливо!):                               │
+│  Текст вимоги ОБОВ'ЯЗКОВО має містити посилання http(s)://...           │
+│  Приклад: "Open https://site.com and login with test@mail.com"          │
+│  Без URL файл буде пропущено з помилкою.                                │
+│                                                                          │
+│  ЯК ПРАЦЮЄ SELF-HEALING?                                                 │
+│  Тест впав → система знімає HTML + скріншот → AI аналізує помилку       │
+│  → показує diff змін → ви ПІДТВЕРДЖУЄТЕ виправлення → тест перезапуск. │
+│                                                                          │
+│  ЗВІТИ: пункт 6 = прогін усіх 67 тестів, пункт 7 = HTML-дашборд.        │
+└──────────────────────────────────────────────────────────────────────────┘
+"""
+    else:
+        guide = """
+┌─ 💡 CORTEX-SDET — QUICK GUIDE ───────────────────────────────────────────┐
+│                                                                          │
+│  WHAT IS IT?                                                             │
+│  A testing orchestrator with an AI core: it generates, runs and          │
+│  self-heals Playwright tests from plain-text descriptions.               │
+│                                                                          │
+│  PRE-BUILT TESTS — already written & stored in the repo:                 │
+│  • API (option 3): api_tests/ — CRUD, JSON Schema, security (PetStore)  │
+│  • SQL (option 4): sql_tests/ — queries + data formats (in-memory SQLite)│
+│  • Data-Driven (option 5): data_driven_tests/ — validates CSV/JSON      │
+│    business rules: email/@, password ≥ 8, role admin/user/editor,        │
+│    price > 0, stock ≥ 0. ⚠️ 6 negative records FAIL by design!          │
+│                                                                          │
+│  AI-GENERATED TESTS — created on the fly (options 1-2):                  │
+│  • Interactive (option 1): you type URL + description in the terminal,  │
+│    AI writes the test and saves it to generated_test_result.py           │
+│  • Batch (option 2): AI reads files from requirements/ and generates    │
+│    a separate test per file: generated_tests/test_<name>.py             │
+│                                                                          │
+│  FORMAT OF FILES IN requirements/ (important!):                          │
+│  The requirement text MUST contain an http(s):// link.                   │
+│  Example: "Open https://site.com and login with test@mail.com"          │
+│  Without a URL the file is skipped with an error.                        │
+│                                                                          │
+│  HOW DOES SELF-HEALING WORK?                                             │
+│  Test fails → system grabs HTML + screenshot → AI diagnoses              │
+│  → shows a diff → you CONFIRM the fix → test re-runs.                  │
+│                                                                          │
+│  REPORTING: option 6 = run all 67 tests, option 7 = HTML dashboard.     │
+└──────────────────────────────────────────────────────────────────────────┘
+"""
+    print(guide)
+def run_module_cli(module_name, module_path, lang="en"):
+    """
+    Runs one of the sub-suite CLIs inside the main process.
+    After the module exits, control returns to the hub menu.
+    """
+    print("\n" + "="*60)
+    print(f"{t(lang, 'enter_module')} {module_name}")
+    print("="*60)
+    print(f"{t(lang, 'launching')} python3 {module_path}")
+    try:
+        result = subprocess.run([sys.executable, module_path], check=False)
+        if result.returncode != 0:
+            print(f"{t(lang, 'module_exit_code')} {result.returncode}")
+    except FileNotFoundError:
+        print(f"{t(lang, 'module_not_found')} {module_path}")
+    except KeyboardInterrupt:
+        print(t(lang, "module_interrupted"))
+    print("\n" + "="*60)
+    print(f"{t(lang, 'back_to_hub')} '{module_name}'")
+    print("="*60)
+
+
 async def interactive_mode(bridge):
     """
     Interactive mode: current logic with manual URL and prompt input.
@@ -523,23 +842,166 @@ async def interactive_mode(bridge):
     await run_agentic_qa(target_url, user_task, bridge)
 
 
-if __name__ == "__main__":
+def run_full_suite():
+    """
+    Runs ALL test modules (API + SQL + Data-Driven) in one shot via pytest.
+    Negative test cases in data/ will fail by design (data validation demo).
+    """
     print("\n" + "="*60)
-    print("🧠  WELCOME TO CORTEX-SDET ORCHESTRATOR")
+    print("🚀 FULL TEST SUITE (API + SQL + DATA-DRIVEN)")
     print("="*60)
+    print("[*] Running: pytest api_tests/ sql_tests/ data_driven_tests/ -v\n")
 
-    # ─── Block 1: Mode Selection ──────────────────────────────────
-    print("\n┌─ MODE SELECTION ───────────────────────────┐")
-    print("│  1. 💬  Interactive                         │")
-    print("│      (manual URL and prompt input)          │")
-    print("│                                              │")
-    print("│  2. 📦  Batch                                │")
-    print("│      (automatic generation from requirements/)│")
-    print("└──────────────────────────────────────────────┘")
+    start = datetime.now()
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "api_tests/", "sql_tests/",
+         "data_driven_tests/", "-v"],
+        capture_output=True,
+        text=True
+    )
+    duration = (datetime.now() - start).total_seconds()
 
-    mode_choice = input("\n👉 Select mode (1 or 2): ").strip()
+    print(result.stdout)
+    if result.stderr:
+        print(f"  stderr: {result.stderr[-500:]}")
 
-    # ─── Block 2: AI Provider Selection ───────────────────────────
+    passed, failed = _parse_pytest_summary(result.stdout)
+    total = passed + failed
+    print("\n" + "="*60)
+    if failed:
+        print(f"❌ {failed}/{total} FAILED, {passed} PASSED "
+              f"(time: {duration:.1f}s)")
+        print("   💡 Note: failed cases in data_driven_tests/ are "
+              "negative test data by design.")
+    else:
+        print(f"✅ ALL {total} TESTS PASSED (time: {duration:.1f}s)")
+    print("="*60)
+    return passed, failed, duration
+
+
+def _parse_pytest_summary(stdout):
+    """
+    Parses the pytest 'x passed, y failed' summary line.
+    Returns (passed, failed).
+    """
+    passed = failed = 0
+    for line in stdout.splitlines():
+        if " passed" in line and "failed" in line:
+            passed_match = re.search(r'(\d+)\s+passed', line)
+            failed_match = re.search(r'(\d+)\s+failed', line)
+            passed = int(passed_match.group(1)) if passed_match else 0
+            failed = int(failed_match.group(1)) if failed_match else 0
+            break
+        elif " passed" in line:
+            match = re.search(r'(\d+)\s+passed', line)
+            if match:
+                passed = int(match.group(1))
+            break
+    return passed, failed
+
+
+
+def generate_unified_dashboard():
+    """
+    Generates a single HTML dashboard that aggregates:
+    - pytest HTML reports from reports/ (AI UI tests)
+    - .md test summaries from generated_tests/ (batch AI tests)
+    Returns the dashboard path.
+    """
+    reporter = CortexReporter()
+    reports_dir = os.path.join(os.path.dirname(__file__), "reports")
+    generated_dir = os.path.join(os.path.dirname(__file__), "generated_tests")
+
+    report_files = []
+    if os.path.exists(reports_dir):
+        report_files = sorted(
+            [f for f in os.listdir(reports_dir) if f.endswith(".html")]
+        )
+
+    md_files = []
+    if os.path.exists(generated_dir):
+        md_files = sorted(
+            [f for f in os.listdir(generated_dir) if f.endswith(".md")]
+        )
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    dashboard_path = os.path.join(reports_dir, "dashboard_index.html")
+
+    report_items = "".join(
+        f'<li class="list-group-item d-flex justify-content-between">'
+        f'<a href="{f}" target="_blank">{f}</a>'
+        f'<span class="badge bg-primary rounded-pill">report</span></li>'
+        for f in report_files
+    ) or '<li class="list-group-item text-muted">No reports yet — run AI UI tests first.</li>'
+
+    md_items = "".join(
+        f'<li class="list-group-item d-flex justify-content-between">'
+        f'<a href="{f}" target="_blank">{f}</a>'
+        f'<span class="badge bg-secondary rounded-pill">summary</span></li>'
+        for f in md_files
+    ) or '<li class="list-group-item text-muted">No summaries yet — run Batch AI mode first.</li>'
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cortex-SDET Unified Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {{ background-color: #f8f9fa; padding: 40px; }}
+        .card {{ border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: none; }}
+        .stat {{ font-size: 2.2rem; font-weight: bold; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">🧠 Cortex-SDET Unified Dashboard</h1>
+        <p class="text-muted">Generated: {timestamp}</p>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card text-center p-3">
+                    <div class="text-muted">AI HTML Reports</div>
+                    <div class="stat text-primary">{len(report_files)}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center p-3">
+                    <div class="text-muted">AI Test Summaries</div>
+                    <div class="stat text-secondary">{len(md_files)}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center p-3">
+                    <div class="text-muted">Test Modules</div>
+                    <div class="stat text-success">4</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <h4>📊 AI UI Test Reports</h4>
+            <ul class="list-group">{report_items}</ul>
+        </div>
+
+        <div class="card p-4">
+            <h4>📝 AI Batch Test Summaries</h4>
+            <ul class="list-group">{md_items}</ul>
+        </div>
+    </div>
+</body>
+</html>"""
+
+    with open(dashboard_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"\n[📊] UNIFIED DASHBOARD GENERATED: {dashboard_path}")
+    return dashboard_path
+
+def init_bridge(lang):
+    """
+    Interactively selects the AI provider and returns a configured CortexBridge.
+    Used by hub options 1 (Interactive) and 2 (Batch).
+    """
     print("\n┌─ AI PROVIDER ──────────────────────────────────┐")
     print("│  1. 💻  Local (Ollama — qwen2.5:3b)            │")
     print("│  2. ☁️   Cloud OpenAI (GPT-4o-mini)            │")
@@ -554,43 +1016,156 @@ if __name__ == "__main__":
 
     provider_choice = input("\n👉 Select provider (1, 2, 3 or 4): ").strip()
 
-    # Provider selection logic and Bridge initialization
-    bridge = None
-
     if provider_choice == "2":
-        # OpenAI
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             print("\n❌ ERROR: OPENAI_API_KEY not found in .env file")
-            exit(1)
-        bridge = CortexBridge(model_name="gpt-4o-mini", use_cloud=True, api_key=api_key)
+            return None
+        return CortexBridge(model_name="gpt-4o-mini", use_cloud=True, api_key=api_key, language=lang)
 
     elif provider_choice == "3":
-        # Google Gemini
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             print("\n❌ ERROR: GEMINI_API_KEY not found in .env file")
-            exit(1)
-        bridge = CortexBridge(model_name="gemini-3-flash-preview", use_cloud=True, api_key=api_key)
+            return None
+        return CortexBridge(model_name="gemini-3-flash-preview", use_cloud=True, api_key=api_key, language=lang)
 
     elif provider_choice == "4":
-        # OpenRouter (DeepSeek)
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             print("\n❌ ERROR: OPENROUTER_API_KEY not found in .env file")
-            exit(1)
-        bridge = CortexBridge(
+            return None
+        return CortexBridge(
             model_name="deepseek/deepseek-chat",
             use_cloud=True,
             api_key=api_key,
-            use_openrouter=True
+            use_openrouter=True,
+            language=lang
         )
 
     else:
-        # Local mode by default or choice '1'
-        bridge = CortexBridge(model_name="qwen2.5:3b", use_cloud=False)
+        return CortexBridge(model_name="qwen2.5:3b", use_cloud=False, language=lang)
 
-    if mode_choice == "2":
-        asyncio.run(batch_process(bridge))
-    else:
-        asyncio.run(interactive_mode(bridge))
+
+def _disp_width(s):
+    """
+    Estimates the on-screen display width of a string (wide CJK/emoji
+    characters take 2 columns). Used to align the menu borders perfectly.
+    """
+    import unicodedata
+    w = 0
+    for ch in s:
+        o = ord(ch)
+        # Variation selector / ZWJ take no column space on their own
+        if 0xFE00 <= o <= 0xFE0F or o == 0x200D:
+            continue
+        # Wide CJK + common emoji blocks (incl. ⚡ 0x26A1, ℹ 0x2139 with VS16)
+        if (unicodedata.east_asian_width(ch) in ("W", "F")
+                or 0x1F000 <= o <= 0x1FAFF
+                or 0x2600 <= o <= 0x27BF
+                or o == 0x2139):
+            w += 2
+        else:
+            w += 1
+    return w
+
+
+def print_hub_menu(lang="en"):
+    """
+    Prints the unified, localized main menu of the Control Center.
+    Borders are rendered dynamically with per-line padding, so the
+    right edge always forms one straight vertical line.
+    """
+    T = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
+    TOTAL = 74  # full width incl. border chars
+
+    def line(text):
+        pad = TOTAL - _disp_width(text) - 4  # │ + space + space + │
+        if pad < 0:
+            pad = 0
+        return "│ " + text + " " * pad + " │"
+
+    print()
+    print("┌" + "─" * (TOTAL - 2) + "┐")
+    print(line(T["menu_ai"]))
+    print(line(T["opt1_title"]))
+    print(line(T["opt1_desc"]))
+    print(line(T["opt2_title"]))
+    print(line(T["opt2_desc"]))
+    print(line(""))
+    print(line(T["menu_suites"]))
+    print(line(T["opt3_title"]))
+    print(line(T["opt3_desc"]))
+    print(line(T["opt4_title"]))
+    print(line(T["opt4_desc"]))
+    print(line(T["opt5_title"]))
+    print(line(T["opt5_desc"]))
+    print(line(""))
+    print(line(T["menu_allinone"]))
+    print(line(T["opt6_title"]))
+    print(line(T["opt6_desc"]))
+    print(line(T["opt7_title"]))
+    print(line(T["opt7_desc"]))
+    print(line(""))
+    print(line(T["menu_info"]))
+    print(line(T["opt8_title"]))
+    print(line(T["opt8_desc"]))
+    print(line(""))
+    print(line(T["opt0"]))
+    print("└" + "─" * (TOTAL - 2) + "┘")
+
+
+def main():
+    """Main entry point — unified Control Center (bilingual UI)."""
+    # ─── Step 1: Language selection for the whole UI + AI ───────
+    lang = select_language()
+    print("\n" + "="*60)
+    print(t(lang, "welcome_title"))
+    print(t(lang, "welcome_subtitle"))
+    print("="*60)
+
+    # ─── Step 2: Main hub loop ──────────────────────────────────
+    while True:
+        print_hub_menu(lang)
+        choice = input(t(lang, "menu_prompt")).strip()
+
+        if choice == "1":
+            # AI Agentic Interactive mode
+            bridge = init_bridge(lang)
+            if bridge:
+                asyncio.run(interactive_mode(bridge))
+
+        elif choice == "2":
+            # Batch generation mode
+            bridge = init_bridge(lang)
+            if bridge:
+                asyncio.run(batch_process(bridge))
+
+        elif choice == "3":
+            run_module_cli(t(lang, "opt3_short"), "api_tests/api_cli.py", lang)
+
+        elif choice == "4":
+            run_module_cli(t(lang, "opt4_short"), "sql_tests/sql_cli.py", lang)
+
+        elif choice == "5":
+            run_module_cli(t(lang, "opt5_short"), "data_driven_tests/data_cli.py", lang)
+
+        elif choice == "6":
+            run_full_suite()
+
+        elif choice == "7":
+            generate_unified_dashboard()
+
+        elif choice == "8":
+            show_quick_guide(lang)
+
+        elif choice == "0":
+            print(t(lang, "exit_msg"))
+            break
+
+        else:
+            print(t(lang, "invalid_choice"))
+
+
+if __name__ == "__main__":
+    main()

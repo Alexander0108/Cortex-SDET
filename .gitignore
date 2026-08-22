@@ -25,3 +25,6 @@ generated_test_result.py
 
 # Project Documentation (Internal)
 project_analysis.md
+
+# AI Assistant Rules (local config)
+.clinerules/

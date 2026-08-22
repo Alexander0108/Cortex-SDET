@@ -1,10 +1,30 @@
 import time
 
 class CortexBridge:
-    def __init__(self, model_name="deepseek-r1:8b", use_cloud=False, api_key=None, use_openrouter=False):
+    # Language rule snippets appended to the system prompt.
+    # Technical terms, error codes, exceptions and code stay in English.
+    _LANGUAGE_RULES = {
+        "uk": """
+            LANGUAGE RULE (CRITICAL): Write ALL natural-language output
+            (diagnosis, explanations, repair notes, summary comments)
+            in UKRAINIAN. Strict exceptions that MUST remain in English:
+            technical terms (locator, selector, fixture), HTTP status codes
+            (404, 500), exception names (TimeoutError, NoSuchElementException),
+            and all Python/Playwright code.
+        """,
+        "en": """
+            LANGUAGE RULE: Write ALL natural-language output
+            (diagnosis, explanations, repair notes, summary comments)
+            in ENGLISH.
+        """,
+    }
+
+    def __init__(self, model_name="deepseek-r1:8b", use_cloud=False, api_key=None, use_openrouter=False, language="en"):
         self.model_name = model_name
         self.use_cloud = use_cloud
         self.use_openrouter = use_openrouter
+        # Language for AI natural-language answers: "en" or "uk"
+        self.language = language if language in self._LANGUAGE_RULES else "en"
 
         # Initialize clients depending on the selected provider
         if self.use_cloud and api_key:
@@ -85,6 +105,8 @@ class CortexBridge:
                         finally:
                             await browser.close()
         """
+        # Append the language rule to the system prompt
+        self.system_prompt = self.system_prompt + self._LANGUAGE_RULES[self.language]
 
     def _call_llm(self, prompt):
         """Internal method for routing requests (Gemini/OpenAI/OpenRouter cloud or local)."""
