@@ -10,6 +10,11 @@ Run: python3 sql_tests/sql_cli.py
 import sqlite3
 import json
 import os
+import sys
+
+# Allow importing the shared cli_utils module from the project root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from cli_utils import render_box
 
 
 def create_database():
@@ -401,33 +406,31 @@ def action_run_all_sql(conn):
 
 def show_menu():
     """Display the interactive menu"""
-    print("\n" + "█" * 65)
-    print("  🗄️   CORTEX-SDET SQL TESTING CLI")
-    print("  Database Testing — SQLite Demo")
-    print("█" * 65)
-    print("""
-  ┌─ ACTIONS ────────────────────────────────────────────┐
-  │    SELECT QUERIES                                    │
-  │  1. 📊  SELECT     — Get all users                   │
-  │  2. 🔍  SELECT     — Filter users by status          │
-  │                                                       │
-  │    JOINS                                             │
-  │  3. 🔗  INNER JOIN — Users with their orders         │
-  │  4. 🔗  LEFT JOIN  — All users (even without orders) │
-  │                                                       │
-  │    DATA MODIFICATION                                 │
-  │  5. ✏️  UPDATE     — Change user status              │
-  │  6. ➕  INSERT     — Add a new user                  │
-  │  7. 🗑️  DELETE     — Remove a user                   │
-  │                                                       │
-  │    AGGREGATION & SPECIAL                             │
-  │  8. 📈  GROUP BY   — Top spenders                    │
-  │  9. 📋  JSON Data   — Preferences in database         │
-  │ 10. ⚡  Custom SQL  — Run any query                   │
-  │                                                       │
-  │ 11. 🏃  Run All SQL Tests (pytest)                   │
-  │  0. ❌  Exit                                         │
-  └───────────────────────────────────────────────────────┘""")
+    print(render_box([
+        "📁 CORTEX-SDET SQL TESTING CLI",
+        "Database Testing - SQLite Demo",
+        "",
+        "SELECT QUERIES:",
+        "1. 📊 SELECT - Get all users",
+        "2. 🔍 SELECT - Filter users by status",
+        "",
+        "JOINS:",
+        "3. 🔗 INNER JOIN - Users with their orders",
+        "4. 🔗 LEFT JOIN - All users (even without orders)",
+        "",
+        "DATA MODIFICATION:",
+        "5. 🔧 UPDATE - Change user status",
+        "6. 💾 INSERT - Add a new user",
+        "7. ⛔ DELETE - Remove a user",
+        "",
+        "AGGREGATION & SPECIAL:",
+        "8. 📈 GROUP BY - Top spenders",
+        "9. 📋 JSON Data - Preferences in database",
+        "10. 📝 Custom SQL - Run any query",
+        "",
+        "11. 🏃 Run All SQL Tests (pytest)",
+        "0. ❌ Exit",
+    ], 60))
 
 
 def main():

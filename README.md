@@ -56,6 +56,10 @@ When a locator changes or an element goes missing:
 6. **Patch & Retry**: Apply the fix, re-execute the test
 7. **Report**: Generate a detailed report with `"FIXED BY AI"` status
 
+Every HTML report that involved a repair now includes a dedicated **🛠️ Self-Healing Execution Log** section showing:
+- 🧠 **AI Diagnosis** — what was found (e.g. *"Old locator `#old_btn` was removed from DOM"*)
+- 🔧 **Action taken** — how it was fixed (e.g. *"Replaced with `get_by_role(button, name=\"Log in\")`. Test re-ran and passed."*)
+
 > 🔒 **Safety by design**: Batch mode also asks for confirmation before applying an AI patch. The user stays in control of every code change.
 
 ### 📦 Batch Mode
@@ -86,16 +90,23 @@ python3 api_tests/api_cli.py
 A user-friendly menu-driven interface for demonstrating API testing interactively:
 
 ```
-┌─ ACTIONS ──────────────────────────────────────────┐
-│  1. 📦  GET      — List pets by status             │
-│  2. 🔍  GET      — Get pet by ID                   │
-│  3. ➕  POST     — Create a new pet                │
-│  4. ✏️  PUT      — Update an existing pet          │
-│  5. 🗑️  DELETE   — Delete a pet                    │
-│  6. 📋  JSON Schema Validation                     │
-│  7. 📖  Swagger / OpenAPI Spec                     │
-│  8. 🏃  Run All API Tests (pytest)                 │
-└─────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│ 🧠 CORTEX-SDET API TESTING CLI                                  │
+│ REST API Testing - PetStore Demo                                │
+│                                                                 │
+│ ACTIONS:                                                        │
+│ 1. 📦 GET - List pets by status                                 │
+│ 2. 🔍 GET - Get pet by ID                                       │
+│ 3. 💾 POST - Create a new pet                                   │
+│ 4. 🔧 PUT - Update an existing pet                              │
+│ 5. ⛔ DELETE - Delete a pet                                     │
+│                                                                 │
+│ 6. 📋 JSON Schema Validation                                    │
+│ 7. 📖 Swagger / OpenAPI Spec                                    │
+│                                                                 │
+│ 8. 🏃 Run All API Tests (pytest)                                │
+│ 0. ❌ Exit                                                      │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ### pytest Suite
@@ -129,18 +140,31 @@ python3 sql_tests/sql_cli.py
 A menu-driven interface for demonstrating SQL queries interactively:
 
 ```
-┌─ ACTIONS ────────────────────────────────────────────┐
-│  1. 📊  SELECT     — Get all users                   │
-│  2. 🔍  SELECT     — Filter users by status          │
-│  3. 🔗  INNER JOIN — Users with their orders         │
-│  4. 🔗  LEFT JOIN  — All users (even without orders) │
-│  5. ✏️  UPDATE     — Change user status              │
-│  6. ➕  INSERT     — Add a new user                  │
-│  7. 🗑️  DELETE     — Remove a user                   │
-│  8. 📈  GROUP BY   — Top spenders                    │
-│  9. 📋  JSON Data   — Preferences in database         │
-│ 10. ⚡  Custom SQL  — Run any query                   │
-└───────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│ 📁 CORTEX-SDET SQL TESTING CLI                                  │
+│ Database Testing - SQLite Demo                                  │
+│                                                                 │
+│ SELECT QUERIES:                                                 │
+│ 1. 📊 SELECT - Get all users                                    │
+│ 2. 🔍 SELECT - Filter users by status                           │
+│                                                                 │
+│ JOINS:                                                          │
+│ 3. 🔗 INNER JOIN - Users with their orders                      │
+│ 4. 🔗 LEFT JOIN - All users (even without orders)               │
+│                                                                 │
+│ DATA MODIFICATION:                                              │
+│ 5. 🔧 UPDATE - Change user status                               │
+│ 6. 💾 INSERT - Add a new user                                   │
+│ 7. ⛔ DELETE - Remove a user                                    │
+│                                                                 │
+│ AGGREGATION & SPECIAL:                                          │
+│ 8. 📈 GROUP BY - Top spenders                                   │
+│ 9. 📋 JSON Data - Preferences in database                        │
+│ 10. 📝 Custom SQL - Run any query                               │
+│                                                                 │
+│ 11. 🏃 Run All SQL Tests (pytest)                               │
+│ 0. ❌ Exit                                                      │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ### pytest Suite

@@ -10,6 +10,12 @@ Run: python3 api_tests/api_cli.py
 import requests
 import json
 import random
+import os
+import sys
+
+# Allow importing the shared cli_utils module from the project root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from cli_utils import render_box
 
 BASE_URL = "https://petstore.swagger.io/v2"
 HEADERS = {
@@ -315,24 +321,23 @@ def action_run_all():
 
 def show_menu():
     """Display the interactive menu"""
-    print("\n" + "█" * 65)
-    print("  🧠  CORTEX-SDET API TESTING CLI")
-    print("  REST API Testing — PetStore Demo")
-    print("█" * 65)
-    print("""
-  ┌─ ACTIONS ──────────────────────────────────────────┐
-  │  1. 📦  GET      — List pets by status             │
-  │  2. 🔍  GET      — Get pet by ID                   │
-  │  3. ➕  POST     — Create a new pet                │
-  │  4. ✏️  PUT      — Update an existing pet          │
-  │  5. 🗑️  DELETE   — Delete a pet                    │
-  │                                                     │
-  │  6. 📋  JSON Schema Validation                     │
-  │  7. 📖  Swagger / OpenAPI Spec                     │
-  │                                                     │
-  │  8. 🏃  Run All API Tests (pytest)                 │
-  │  0. ❌  Exit                                       │
-  └─────────────────────────────────────────────────────┘""")
+    print(render_box([
+        "🧠 CORTEX-SDET API TESTING CLI",
+        "REST API Testing - PetStore Demo",
+        "",
+        "ACTIONS:",
+        "1. 📦 GET - List pets by status",
+        "2. 🔍 GET - Get pet by ID",
+        "3. 💾 POST - Create a new pet",
+        "4. 🔧 PUT - Update an existing pet",
+        "5. ⛔ DELETE - Delete a pet",
+        "",
+        "6. 📋 JSON Schema Validation",
+        "7. 📖 Swagger / OpenAPI Spec",
+        "",
+        "8. 🏃 Run All API Tests (pytest)",
+        "0. ❌ Exit",
+    ], 60))
 
 
 def main():

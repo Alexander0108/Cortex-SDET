@@ -14,6 +14,10 @@ import re
 import subprocess
 import sys
 
+# Allow importing the shared cli_utils module from the project root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from cli_utils import render_box
+
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 USERS_CSV = os.path.join(DATA_DIR, "test_users.csv")
 PRODUCTS_JSON = os.path.join(DATA_DIR, "test_products.json")
@@ -255,19 +259,18 @@ def action_run_all():
 
 def show_menu():
     """Display the interactive menu"""
-    print("\n" + "█" * 65)
-    print("  📊  CORTEX-SDET DATA-DRIVEN TESTING CLI")
-    print("  CSV / JSON Data Validation — Parameterized Tests")
-    print("█" * 65)
-    print("""
-  ┌─ ACTIONS ──────────────────────────────────────┐
-  │  1. 📄  Show CSV test data (users)             │
-  │  2. 📄  Show JSON test data (products)         │
-  │  3. 🏃  Run CSV data-driven tests (pytest)     │
-  │  4. 🏃  Run JSON data-driven tests (pytest)    │
-  │  5. 🏃  Run ALL data-driven tests (pytest)     │
-  │  0. ❌  Exit                                   │
-  └─────────────────────────────────────────────────┘""")
+    print(render_box([
+        "📊 CORTEX-SDET DATA-DRIVEN TESTING CLI",
+        "CSV / JSON Data Validation - Parameterized Tests",
+        "",
+        "ACTIONS:",
+        "1. 📄 Show CSV test data (users)",
+        "2. 📄 Show JSON test data (products)",
+        "3. 🏃 Run CSV data-driven tests (pytest)",
+        "4. 🏃 Run JSON data-driven tests (pytest)",
+        "5. 🏃 Run ALL data-driven tests (pytest)",
+        "0. ❌ Exit",
+    ], 60))
 
 
 def main():

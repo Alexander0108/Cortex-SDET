@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from scraper import CortexScraper
 from bridge import CortexBridge
 from reporter import CortexReporter
+from cli_utils import render_line, render_box, disp_width
 
 load_dotenv() # Load environment variables from .env
 
@@ -215,7 +216,7 @@ async def run_agentic_qa(url, task, bridge):
     status = "PASSED" if success else "FAILED"
 
     # Generate report
-    reporter.generate_report(url, task, status, error_msg, screenshot_path)
+    report_path = reporter.generate_report(url, task, status, error_msg, screenshot_path)
 
     if not success:
         lang = getattr(bridge, "language", "en")  # for localized UI
@@ -268,6 +269,16 @@ async def run_agentic_qa(url, task, bridge):
                     print(f"{t(lang, 'sh_final_error')}\n{error_msg}")
         else:
             print(t(lang, "sh_cancelled"))
+
+        # Regenerate report with Self-Healing log if the repair was applied
+        if user_choice == 'y':
+            repair_details = {
+                'diagnosis': extract_diagnosis(raw_repaired),
+                'notes': (f"Applied AI fix to {os.path.basename(test_file)}. "
+                          f"Repaired selectors; final status: {'PASSED' if success else 'FAILED'}.")
+            }
+            final_status = "PASSED (after self-heal)" if success else status
+            reporter.generate_report(url, task, final_status, error_msg, screenshot_path, repair_details)
 
 
 def parse_task_file(file_path, lang="en"):
@@ -402,7 +413,7 @@ async def generate_from_file(file_path, bridge):
                     print(f"[!] Error during self-healing: {e}")
 
         # Generate report
-        report_path = reporter.generate_report(url, task, status, error_msg, screenshot_path)
+        report_path = reporter.generate_report(url, task, status, error_msg, screenshot_path, repair_details)
         print(f"[📊] Report saved: {report_path}")
 
         create_test_summary_md(base_name, url, task, bridge.model_name, status, report_path, error_msg, repair_details)
@@ -507,8 +518,8 @@ async def generate_from_file(file_path, bridge):
             'notes': f"Automated fix applied. Old code snippet: {old_code_snippet[:100]}..."
         }
 
-        # Update report after repair
-        reporter.generate_report(url, task, status, error_msg, screenshot_path)
+        # Update report with Self-Healing log after repair
+        reporter.generate_report(url, task, status, error_msg, screenshot_path, repair_details)
 
         # Create .md summary with repair details
         create_test_summary_md(
@@ -560,14 +571,16 @@ def select_language():
     Technical terms, error codes and exceptions always stay in English.
     Returns: "en" or "uk"
     """
-    print("\n┌─ AI RESPONSE LANGUAGE ─────────────────────────┐")
-    print("│  1. 🇺🇦  Українська                              │")
-    print("│      (AI відповідає українською; професійні     │")
-    print("│       терміни, коди помилок та код — англійською)│")
-    print("│                                                 │")
-    print("│  2. 🇬🇧  English                                 │")
-    print("│      (AI answers in English by default)         │")
-    print("└─────────────────────────────────────────────────┘")
+    print(render_box([
+        "AI RESPONSE LANGUAGE",
+        "",
+        "1. Українська",
+        "   (AI відповідає українською; професійні терміни,",
+        "    коди помилок та код — англійською)",
+        "",
+        "2. English",
+        "   (AI answers in English by default)",
+    ]))
 
     while True:
         choice = input("\n👉 Select language (1 or 2): ").strip()
@@ -808,7 +821,7 @@ def show_quick_guide(lang):
     print()
     print("┌" + "─" * (TOTAL - 2) + "┐")
     for row in rows:
-        print(_render_line(row, TOTAL))
+        print(render_line(row, TOTAL))
     print("└" + "─" * (TOTAL - 2) + "┘")
 def run_module_cli(module_name, module_path, lang="en"):
     """
@@ -1006,17 +1019,20 @@ def init_bridge(lang):
     Interactively selects the AI provider and returns a configured CortexBridge.
     Used by hub options 1 (Interactive) and 2 (Batch).
     """
-    print("\n┌─ AI PROVIDER ──────────────────────────────────┐")
-    print("│  1. 💻  Local (Ollama — qwen2.5:3b)            │")
-    print("│  2. ☁️   Cloud OpenAI (GPT-4o-mini)            │")
-    print("│      🔑 Requires OPENAI_API_KEY in .env        │")
-    print("│                                                │")
-    print("│  3. ☁️   Cloud Google (gemini-3-flash)         │")
-    print("│      🔑 Requires GEMINI_API_KEY in .env        │")
-    print("│                                                │")
-    print("│  4. ☁️   Cloud OpenRouter (DeepSeek V4) ⭐     │")
-    print("│      🔑 Requires OPENROUTER_API_KEY in .env    │")
-    print("└────────────────────────────────────────────────┘")
+    print(render_box([
+        "AI PROVIDER",
+        "",
+        "1. 💻 Local (Ollama - qwen2.5:3b)",
+        "",
+        "2. 🌐 Cloud OpenAI (GPT-4o-mini)",
+        "   🔑 Requires OPENAI_API_KEY in .env",
+        "",
+        "3. 🌐 Cloud Google (gemini-3-flash)",
+        "   🔑 Requires GEMINI_API_KEY in .env",
+        "",
+        "4. 🌐 Cloud OpenRouter (DeepSeek V4) 🏆",
+        "   🔑 Requires OPENROUTER_API_KEY in .env",
+    ]))
 
     provider_choice = input("\n👉 Select provider (1, 2, 3 or 4): ").strip()
 
@@ -1051,41 +1067,6 @@ def init_bridge(lang):
         return CortexBridge(model_name="qwen2.5:3b", use_cloud=False, language=lang)
 
 
-def _disp_width(s):
-    """
-    Estimates the on-screen display width of a string (wide CJK/emoji
-    characters take 2 columns). Used to align the menu borders perfectly.
-    """
-    import unicodedata
-    w = 0
-    for ch in s:
-        o = ord(ch)
-        # Variation selector / ZWJ take no column space on their own
-        if 0xFE00 <= o <= 0xFE0F or o == 0x200D:
-            continue
-        # Wide CJK + common emoji blocks (incl. ⚡ 0x26A1, ℹ 0x2139 with VS16)
-        if (unicodedata.east_asian_width(ch) in ("W", "F")
-                or 0x1F000 <= o <= 0x1FAFF
-                or 0x2600 <= o <= 0x27BF
-                or o == 0x2139):
-            w += 2
-        else:
-            w += 1
-    return w
-
-
-def _render_line(text, total=74):
-    """
-    Renders one content line inside the box borders, with padding computed
-    from the real display width (emoji/CJK = 2 columns). Guarantees a
-    straight right edge regardless of font/terminal.
-    """
-    pad = total - _disp_width(text) - 4  # │ + space + space + │
-    if pad < 0:
-        pad = 0
-    return "│ " + text + " " * pad + " │"
-
-
 def print_hub_menu(lang="en"):
     """
     Prints the unified, localized main menu of the Control Center.
@@ -1097,31 +1078,31 @@ def print_hub_menu(lang="en"):
 
     print()
     print("┌" + "─" * (TOTAL - 2) + "┐")
-    print(_render_line(T["menu_ai"], TOTAL))
-    print(_render_line(T["opt1_title"], TOTAL))
-    print(_render_line(T["opt1_desc"], TOTAL))
-    print(_render_line(T["opt2_title"], TOTAL))
-    print(_render_line(T["opt2_desc"], TOTAL))
-    print(_render_line("", TOTAL))
-    print(_render_line(T["menu_suites"], TOTAL))
-    print(_render_line(T["opt3_title"], TOTAL))
-    print(_render_line(T["opt3_desc"], TOTAL))
-    print(_render_line(T["opt4_title"], TOTAL))
-    print(_render_line(T["opt4_desc"], TOTAL))
-    print(_render_line(T["opt5_title"], TOTAL))
-    print(_render_line(T["opt5_desc"], TOTAL))
-    print(_render_line("", TOTAL))
-    print(_render_line(T["menu_allinone"], TOTAL))
-    print(_render_line(T["opt6_title"], TOTAL))
-    print(_render_line(T["opt6_desc"], TOTAL))
-    print(_render_line(T["opt7_title"], TOTAL))
-    print(_render_line(T["opt7_desc"], TOTAL))
-    print(_render_line("", TOTAL))
-    print(_render_line(T["menu_info"], TOTAL))
-    print(_render_line(T["opt8_title"], TOTAL))
-    print(_render_line(T["opt8_desc"], TOTAL))
-    print(_render_line("", TOTAL))
-    print(_render_line(T["opt0"], TOTAL))
+    print(render_line(T["menu_ai"], TOTAL))
+    print(render_line(T["opt1_title"], TOTAL))
+    print(render_line(T["opt1_desc"], TOTAL))
+    print(render_line(T["opt2_title"], TOTAL))
+    print(render_line(T["opt2_desc"], TOTAL))
+    print(render_line("", TOTAL))
+    print(render_line(T["menu_suites"], TOTAL))
+    print(render_line(T["opt3_title"], TOTAL))
+    print(render_line(T["opt3_desc"], TOTAL))
+    print(render_line(T["opt4_title"], TOTAL))
+    print(render_line(T["opt4_desc"], TOTAL))
+    print(render_line(T["opt5_title"], TOTAL))
+    print(render_line(T["opt5_desc"], TOTAL))
+    print(render_line("", TOTAL))
+    print(render_line(T["menu_allinone"], TOTAL))
+    print(render_line(T["opt6_title"], TOTAL))
+    print(render_line(T["opt6_desc"], TOTAL))
+    print(render_line(T["opt7_title"], TOTAL))
+    print(render_line(T["opt7_desc"], TOTAL))
+    print(render_line("", TOTAL))
+    print(render_line(T["menu_info"], TOTAL))
+    print(render_line(T["opt8_title"], TOTAL))
+    print(render_line(T["opt8_desc"], TOTAL))
+    print(render_line("", TOTAL))
+    print(render_line(T["opt0"], TOTAL))
     print("└" + "─" * (TOTAL - 2) + "┘")
 
 
