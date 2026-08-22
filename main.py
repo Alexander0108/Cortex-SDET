@@ -740,72 +740,76 @@ def code_diff_summary(old_code, new_code, max_lines=18):
 def show_quick_guide(lang):
     """Prints a compact bilingual framework overview directly in the terminal."""
     if lang == "uk":
-        guide = """
-┌─ 💡 CORTEX-SDET — КОРОТКИЙ ГІД ──────────────────────────────────────────┐
-│                                                                          │
-│  ЩО ЦЕ?                                                                  │
-│  Оркестратор тестування з AI-ядром: генерує, запускає та                 │
-│  самостійно лікує Playwright-тести за текстовими описами.                │
-│                                                                          │
-│  ГОТОВІ (pre-built) ТЕСТИ — вже написані та лежать у репозиторії:        │
-│  • API (пункт 3): api_tests/ — CRUD, JSON Schema, безпека (PetStore)    │
-│  • SQL (пункт 4): sql_tests/ — запити + формати даних (SQLite in-memory)│
-│  • Data-Driven (пункт 5): data_driven_tests/ — валідація CSV/JSON       │
-│    бізнес-правил: email/@, пароль ≥ 8, роль admin/user/editor,          │
-│    ціна > 0, stock ≥ 0. ⚠️ 6 негативних записів ПАДАЮТЬ навмисно!       │
-│                                                                          │
-│  AI-ГЕНЕРОВАНІ ТЕСТИ — створюються на льоту (пункти 1-2):               │
-│  • Interactive (пункт 1): ви вводите URL + опис у терміналі,            │
-│    AI пише тест і зберігає у generated_test_result.py                   │
-│  • Batch (пункт 2): AI читає файли з requirements/ і генерує            │
-│    окремий тест для кожного: generated_tests/test_<name>.py             │
-│                                                                          │
-│  ФОРМАТ ФАЙЛІВ У requirements/ (важливо!):                               │
-│  Текст вимоги ОБОВ'ЯЗКОВО має містити посилання http(s)://...           │
-│  Приклад: "Open https://site.com and login with test@mail.com"          │
-│  Без URL файл буде пропущено з помилкою.                                │
-│                                                                          │
-│  ЯК ПРАЦЮЄ SELF-HEALING?                                                 │
-│  Тест впав → система знімає HTML + скріншот → AI аналізує помилку       │
-│  → показує diff змін → ви ПІДТВЕРДЖУЄТЕ виправлення → тест перезапуск. │
-│                                                                          │
-│  ЗВІТИ: пункт 6 = прогін усіх 67 тестів, пункт 7 = HTML-дашборд.        │
-└──────────────────────────────────────────────────────────────────────────┘
-"""
+        rows = [
+            "CORTEX-SDET - КОРОТКИЙ ГІД",
+            "",
+            "ЩО ЦЕ?",
+            "Оркестратор тестування з AI-ядром: генерує, запускає та",
+            "самостійно лікує Playwright-тести за текстовими описами.",
+            "",
+            "ГОТОВІ (pre-built) ТЕСТИ - вже написані в репозиторії:",
+            "- API (пункт 3): api_tests/ - CRUD, JSON Schema, безпека",
+            "- SQL (пункт 4): sql_tests/ - запити та формати (SQLite)",
+            "- Data-Driven (пункт 5): data_driven_tests/ - валідація CSV/JSON",
+            "  бізнес-правил: email/@, пароль >= 8, роль admin/user/editor,",
+            "  ціна > 0, stock >= 0. [!] 6 негативних записів ПАДАЮТЬ навмисно!",
+            "",
+            "AI-ГЕНЕРОВАНІ ТЕСТИ - створюються на льоту (пункти 1-2):",
+            "- Interactive (пункт 1): ви вводите URL + опис у терміналі,",
+            "  AI пише тест і зберігає у generated_test_result.py",
+            "- Batch (пункт 2): AI читає файли з requirements/ і генерує",
+            "  окремий тест для кожного: generated_tests/test_<name>.py",
+            "",
+            "ФОРМАТ ФАЙЛІВ У requirements/ (важливо!):",
+            "Текст вимоги ОБОВ'ЯЗКОВО має містити посилання http(s)://...",
+            'Приклад: "Open https://site.com and login with test@mail.com"',
+            "Без URL файл буде пропущено з помилкою.",
+            "",
+            "ЯК ПРАЦЮЄ SELF-HEALING?",
+            "Тест впав -> система знімає HTML + скріншот -> AI аналізує помилку",
+            "-> показує diff змін -> ви ПІДТВЕРДЖУЄТЕ виправлення -> перезапуск.",
+            "",
+            "ЗВІТИ: пункт 6 = прогін усіх 67 тестів, пункт 7 = HTML-дашборд.",
+        ]
     else:
-        guide = """
-┌─ 💡 CORTEX-SDET — QUICK GUIDE ───────────────────────────────────────────┐
-│                                                                          │
-│  WHAT IS IT?                                                             │
-│  A testing orchestrator with an AI core: it generates, runs and          │
-│  self-heals Playwright tests from plain-text descriptions.               │
-│                                                                          │
-│  PRE-BUILT TESTS — already written & stored in the repo:                 │
-│  • API (option 3): api_tests/ — CRUD, JSON Schema, security (PetStore)  │
-│  • SQL (option 4): sql_tests/ — queries + data formats (in-memory SQLite)│
-│  • Data-Driven (option 5): data_driven_tests/ — validates CSV/JSON      │
-│    business rules: email/@, password ≥ 8, role admin/user/editor,        │
-│    price > 0, stock ≥ 0. ⚠️ 6 negative records FAIL by design!          │
-│                                                                          │
-│  AI-GENERATED TESTS — created on the fly (options 1-2):                  │
-│  • Interactive (option 1): you type URL + description in the terminal,  │
-│    AI writes the test and saves it to generated_test_result.py           │
-│  • Batch (option 2): AI reads files from requirements/ and generates    │
-│    a separate test per file: generated_tests/test_<name>.py             │
-│                                                                          │
-│  FORMAT OF FILES IN requirements/ (important!):                          │
-│  The requirement text MUST contain an http(s):// link.                   │
-│  Example: "Open https://site.com and login with test@mail.com"          │
-│  Without a URL the file is skipped with an error.                        │
-│                                                                          │
-│  HOW DOES SELF-HEALING WORK?                                             │
-│  Test fails → system grabs HTML + screenshot → AI diagnoses              │
-│  → shows a diff → you CONFIRM the fix → test re-runs.                  │
-│                                                                          │
-│  REPORTING: option 6 = run all 67 tests, option 7 = HTML dashboard.     │
-└──────────────────────────────────────────────────────────────────────────┘
-"""
-    print(guide)
+        rows = [
+            "CORTEX-SDET - QUICK GUIDE",
+            "",
+            "WHAT IS IT?",
+            "A testing orchestrator with an AI core: it generates, runs and",
+            "self-heals Playwright tests from plain-text descriptions.",
+            "",
+            "PRE-BUILT TESTS - already written & stored in the repo:",
+            "- API (option 3): api_tests/ - CRUD, JSON Schema, security",
+            "- SQL (option 4): sql_tests/ - SQL queries & formats (SQLite)",
+            "- Data-Driven (option 5): data_driven_tests/ - validates CSV/JSON",
+            "  business rules: email/@, password >= 8, role admin/user/editor,",
+            "  price > 0, stock >= 0. [!] 6 negative records FAIL by design!",
+            "",
+            "AI-GENERATED TESTS - created on the fly (options 1-2):",
+            "- Interactive (option 1): you type URL + description in the terminal,",
+            "  AI writes the test and saves it to generated_test_result.py",
+            "- Batch (option 2): AI reads files from requirements/ and generates",
+            "  a separate test per file: generated_tests/test_<name>.py",
+            "",
+            "FORMAT OF FILES IN requirements/ (important!):",
+            "The requirement text MUST contain an http(s):// link.",
+            'Example: "Open https://site.com and login with test@mail.com"',
+            "Without a URL the file is skipped with an error.",
+            "",
+            "HOW DOES SELF-HEALING WORK?",
+            "Test fails -> system grabs HTML + screenshot -> AI diagnoses",
+            "-> shows a diff -> you CONFIRM the fix -> test re-runs.",
+            "",
+            "REPORTING: option 6 = run all 67 tests, option 7 = HTML dashboard.",
+        ]
+
+    TOTAL = 74
+    print()
+    print("┌" + "─" * (TOTAL - 2) + "┐")
+    for row in rows:
+        print(_render_line(row, TOTAL))
+    print("└" + "─" * (TOTAL - 2) + "┘")
 def run_module_cli(module_name, module_path, lang="en"):
     """
     Runs one of the sub-suite CLIs inside the main process.
@@ -1070,6 +1074,18 @@ def _disp_width(s):
     return w
 
 
+def _render_line(text, total=74):
+    """
+    Renders one content line inside the box borders, with padding computed
+    from the real display width (emoji/CJK = 2 columns). Guarantees a
+    straight right edge regardless of font/terminal.
+    """
+    pad = total - _disp_width(text) - 4  # │ + space + space + │
+    if pad < 0:
+        pad = 0
+    return "│ " + text + " " * pad + " │"
+
+
 def print_hub_menu(lang="en"):
     """
     Prints the unified, localized main menu of the Control Center.
@@ -1079,39 +1095,33 @@ def print_hub_menu(lang="en"):
     T = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
     TOTAL = 74  # full width incl. border chars
 
-    def line(text):
-        pad = TOTAL - _disp_width(text) - 4  # │ + space + space + │
-        if pad < 0:
-            pad = 0
-        return "│ " + text + " " * pad + " │"
-
     print()
     print("┌" + "─" * (TOTAL - 2) + "┐")
-    print(line(T["menu_ai"]))
-    print(line(T["opt1_title"]))
-    print(line(T["opt1_desc"]))
-    print(line(T["opt2_title"]))
-    print(line(T["opt2_desc"]))
-    print(line(""))
-    print(line(T["menu_suites"]))
-    print(line(T["opt3_title"]))
-    print(line(T["opt3_desc"]))
-    print(line(T["opt4_title"]))
-    print(line(T["opt4_desc"]))
-    print(line(T["opt5_title"]))
-    print(line(T["opt5_desc"]))
-    print(line(""))
-    print(line(T["menu_allinone"]))
-    print(line(T["opt6_title"]))
-    print(line(T["opt6_desc"]))
-    print(line(T["opt7_title"]))
-    print(line(T["opt7_desc"]))
-    print(line(""))
-    print(line(T["menu_info"]))
-    print(line(T["opt8_title"]))
-    print(line(T["opt8_desc"]))
-    print(line(""))
-    print(line(T["opt0"]))
+    print(_render_line(T["menu_ai"], TOTAL))
+    print(_render_line(T["opt1_title"], TOTAL))
+    print(_render_line(T["opt1_desc"], TOTAL))
+    print(_render_line(T["opt2_title"], TOTAL))
+    print(_render_line(T["opt2_desc"], TOTAL))
+    print(_render_line("", TOTAL))
+    print(_render_line(T["menu_suites"], TOTAL))
+    print(_render_line(T["opt3_title"], TOTAL))
+    print(_render_line(T["opt3_desc"], TOTAL))
+    print(_render_line(T["opt4_title"], TOTAL))
+    print(_render_line(T["opt4_desc"], TOTAL))
+    print(_render_line(T["opt5_title"], TOTAL))
+    print(_render_line(T["opt5_desc"], TOTAL))
+    print(_render_line("", TOTAL))
+    print(_render_line(T["menu_allinone"], TOTAL))
+    print(_render_line(T["opt6_title"], TOTAL))
+    print(_render_line(T["opt6_desc"], TOTAL))
+    print(_render_line(T["opt7_title"], TOTAL))
+    print(_render_line(T["opt7_desc"], TOTAL))
+    print(_render_line("", TOTAL))
+    print(_render_line(T["menu_info"], TOTAL))
+    print(_render_line(T["opt8_title"], TOTAL))
+    print(_render_line(T["opt8_desc"], TOTAL))
+    print(_render_line("", TOTAL))
+    print(_render_line(T["opt0"], TOTAL))
     print("└" + "─" * (TOTAL - 2) + "┘")
 
 
