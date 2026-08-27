@@ -79,8 +79,10 @@ def test_xss_attempt():
     """Attempt XSS via pet name — ensure proper handling"""
     xss_payload = "<script>alert('XSS')</script>"
     
+    # Random ID to avoid collisions on shared PetStore API (parallel CI runs / other users)
+    import random
     response = requests.post(f"{BASE_URL}/pet", json={
-        "id": 666666,
+        "id": random.randint(100000, 999999),
         "name": xss_payload,
         "status": "available"
     }, headers=HEADERS)

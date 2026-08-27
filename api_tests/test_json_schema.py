@@ -202,9 +202,10 @@ def test_validate_pet_required_fields():
 
 def test_validate_nested_objects():
     """Validate nested objects (category, tags) structure"""
-    # Create a pet with full nested structure
-    pet_id = 555555
-    requests.post(f"{BASE_URL}/pet", json={
+    # Create a pet with full nested structure (random ID to avoid collisions on shared PetStore API)
+    import random
+    pet_id = random.randint(100000, 999999)
+    create_response = requests.post(f"{BASE_URL}/pet", json={
         "id": pet_id,
         "name": "NestedTest",
         "status": "available",
@@ -214,6 +215,8 @@ def test_validate_nested_objects():
             {"id": 2, "name": "tag2"}
         ]
     }, headers=HEADERS)
+    assert create_response.status_code == 200, \
+        f"Failed to create pet: {create_response.status_code} {create_response.text}"
     
     # Fetch and validate
     response = requests.get(f"{BASE_URL}/pet/{pet_id}", headers=HEADERS)
