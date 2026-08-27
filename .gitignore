@@ -28,3 +28,7 @@ project_analysis.md
 
 # AI Assistant Rules (local config)
 .clinerules/
+
+# Local developer notes and documentation (machine-local only)
+*.local.md
+*_local.md
